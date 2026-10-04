@@ -30,6 +30,8 @@ export const sessionSettingsSchema = z.object({
   durationMin: z.union([z.literal(5), z.literal(15), z.literal(30)]),
   interviewerModel: z.enum(INTERVIEWER_MODEL_KEYS),
   voiceId: z.string().max(40),
+  /** 面接官の名前(アバターの名札と合わせる。なければ面接官は所属だけを名乗る) */
+  interviewerName: z.string().trim().max(40).optional(),
 });
 export type SessionSettings = z.infer<typeof sessionSettingsSchema>;
 

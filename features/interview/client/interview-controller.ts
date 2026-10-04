@@ -9,7 +9,7 @@ import {
   type TurnEvent,
   type TurnRecord,
 } from "@/lib/interview/types";
-import type { SttProvider, TtsProvider } from "@/lib/speech/voices";
+import type { SttProvider, TtsProvider, VoiceGender } from "@/lib/speech/voices";
 import { AudioCapture, FRAME_MS, type CaptureFrame } from "./audio-capture";
 import { summarize, type LatencyRecord } from "./latency";
 import {
@@ -50,6 +50,8 @@ export type ControllerConfig = {
   ttsProvider: TtsProvider;
   /** イヤホンを使用中なら全二重(割り込み可)、そうでなければ半二重(設計書 3.7) */
   earphones: boolean;
+  /** ブラウザ標準の読み上げで優先する声の性別(アバターに合わせる) */
+  voiceGender?: VoiceGender;
 };
 
 export type Snapshot = {
@@ -232,10 +234,11 @@ export class InterviewController {
     this.update({ status: "preparing", message: "マイクを準備しています…", textMode: config.sttProvider === "text" });
     try {
       this.context = new AudioContext();
-      this.speaker = new Speaker(this.context, {
-        onStart: (index) => this.onSpeakerStart(index),
-        onIdle: () => this.onSpeakerIdle(),
-      });
+      this.speaker = new Speaker(
+        this.context,
+        { onStart: (index) => this.onSpeakerStart(index), onIdle: () => this.onSpeakerIdle() },
+        config.voiceGender,
+      );
       if (this.usesVoice) {
         this.capture = new AudioCapture(this.context);
         await this.capture.start((frame) => this.onFrame(frame));

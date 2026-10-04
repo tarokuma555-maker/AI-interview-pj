@@ -21,6 +21,7 @@ export function renderSessionContext(
     `選考段階: ${STAGE_LABELS[settings.stage]}`,
     `面接官スタイル: ${STYLE_LABELS[settings.style]}`,
     `予定時間: ${settings.durationMin}分`,
+    `面接官の名前: ${settings.interviewerName?.trim() || "(指定なし)"}`,
     "</面接設定>",
     "",
     "<求人情報>",

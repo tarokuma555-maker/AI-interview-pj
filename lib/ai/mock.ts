@@ -23,7 +23,7 @@ export function mockQuestionPlan(context: CandidateContext): QuestionPlan {
 
 export class MockInterviewer implements InterviewerModel {
   async stream(request: InterviewerRequest, onText: (delta: string) => void, signal: AbortSignal): Promise<InterviewerResult> {
-    const text = mockReply(request.messages);
+    const text = mockReply(request.messages, request.sessionContext);
     for (let i = 0; i < text.length; i += 6) {
       if (signal.aborted) throw new DOMException("aborted", "AbortError");
       onText(text.slice(i, i + 6));
@@ -35,14 +35,16 @@ export class MockInterviewer implements InterviewerModel {
   async prewarm(): Promise<void> {}
 }
 
-function mockReply(messages: BetaMessageParam[]): string {
+function mockReply(messages: BetaMessageParam[], sessionContext: string): string {
   const answers = messages.filter((m) => m.role === "user").length - 1;
   const lastSystem = [...messages].reverse().find((m) => m.role === "system");
   if (typeof lastSystem?.content === "string" && lastSystem.content.includes("[[END]]")) {
     return "承知いたしました。本日の面接は以上です。お疲れさまでした。[[END]]";
   }
+  // 面接官の名前が指定されていれば、名字で名乗る
+  const name = /面接官の名前: (?!\(指定なし\))(\S+)/.exec(sessionContext)?.[1];
   const script = [
-    "本日はお時間をいただきありがとうございます。面接を担当いたします人事の山田です。まずは自己紹介と、これまでのご経歴を簡単にお聞かせください。",
+    `本日はお時間をいただきありがとうございます。面接を担当いたします${name ? `${name}` : "人事の者"}です。まずは自己紹介と、これまでのご経歴を簡単にお聞かせください。`,
     "ありがとうございます。今回、転職を考えられたきっかけを教えてください。",
     "なるほど。その中で、ご自身が特に工夫されたことは何でしょうか。",
     "よく分かりました。それでは最後に、何かご質問はありますか。[[REVERSE]]",

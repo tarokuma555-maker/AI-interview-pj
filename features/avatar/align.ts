@@ -32,6 +32,8 @@ export function applySimilarity(t: Similarity, p: Point): Point {
 /**
  * base と variant は同じ大きさの段階(粗い順)の画像の並び。座標はどちらも元画像のピクセル単位で扱う。
  * areas は位置合わせに使う範囲(元画像の座標)。
+ * 最も粗い段階では広い範囲をすべて調べる。以降の段階では、最良の値から1刻みずつ動かして良くなる方へ進む
+ * (粗い段階の選択が少しずれていても、細かい段階で取り戻せる)。
  */
 export function alignSimilarity(base: GrayImage[], variant: GrayImage[], areas: Rect[], imageWidth: number): AlignResult {
   const center = areasCenter(areas);
@@ -42,34 +44,80 @@ export function alignSimilarity(base: GrayImage[], variant: GrayImage[], areas: 
   for (let level = 0; level < base.length; level++) {
     const points = samplePoints(base[level], areas);
     const shiftStep = 1 / base[level].scale;
-    const first = level === 0;
-    const shiftRange = first ? Math.ceil((imageWidth * 0.08) / shiftStep) : 2;
-    const scaleRange = first ? 4 : 2;
-    const angleRange = 2;
-    const origin = best.transform;
-    for (let si = -scaleRange; si <= scaleRange; si++) {
-      for (let ai = -angleRange; ai <= angleRange; ai++) {
-        for (let yi = -shiftRange; yi <= shiftRange; yi++) {
-          for (let xi = -shiftRange; xi <= shiftRange; xi++) {
-            const candidate: Similarity = {
-              ...origin,
-              scale: origin.scale + si * scaleStep,
-              angle: origin.angle + ai * angleStep,
-              tx: origin.tx + xi * shiftStep,
-              ty: origin.ty + yi * shiftStep,
-            };
-            const score = correlation(points, variant[level], candidate);
-            if (score > best.score) best = { transform: candidate, score };
-          }
-        }
+    if (level === 0) {
+      const shiftRange = Math.ceil((imageWidth * 0.08) / shiftStep);
+      best = searchGrid(points, variant[level], best.transform, { shift: [shiftStep, shiftRange], scale: [scaleStep, 4], angle: [angleStep, 2] });
+    } else {
+      // 最良の値の点数を、この段階の画像で測り直してから進める
+      best = { transform: best.transform, score: correlation(points, variant[level], best.transform) };
+      for (const factor of [1, 0.5]) {
+        best = climb(points, variant[level], best, { shift: shiftStep * factor, scale: scaleStep * factor, angle: angleStep * factor });
       }
     }
-    // 次の段階では、今回の最良の値のまわりを半分の刻みで調べる。最良の値の点数は細かい画像で測り直す
-    if (level + 1 < base.length) best = { ...best, score: -Infinity };
     scaleStep /= 2;
     angleStep /= 2;
   }
   return best;
+}
+
+type Steps = { shift: number; scale: number; angle: number };
+
+/** 刻み × 範囲のすべての組み合わせを調べる */
+function searchGrid(
+  points: Points,
+  variant: GrayImage,
+  origin: Similarity,
+  grid: { shift: [number, number]; scale: [number, number]; angle: [number, number] },
+): AlignResult {
+  let best: AlignResult = { transform: origin, score: -Infinity };
+  const [shiftStep, shiftRange] = grid.shift;
+  const [scaleStep, scaleRange] = grid.scale;
+  const [angleStep, angleRange] = grid.angle;
+  for (let si = -scaleRange; si <= scaleRange; si++) {
+    for (let ai = -angleRange; ai <= angleRange; ai++) {
+      for (let yi = -shiftRange; yi <= shiftRange; yi++) {
+        for (let xi = -shiftRange; xi <= shiftRange; xi++) {
+          const candidate = move(origin, { shift: shiftStep, scale: scaleStep, angle: angleStep }, xi, yi, si, ai);
+          const score = correlation(points, variant, candidate);
+          if (score > best.score) best = { transform: candidate, score };
+        }
+      }
+    }
+  }
+  return best;
+}
+
+/** 4つの値をそれぞれ ±1刻み動かした組み合わせのうち最良のものへ進み、良くならなくなったら止める */
+function climb(points: Points, variant: GrayImage, start: AlignResult, steps: Steps): AlignResult {
+  let best = start;
+  for (let iteration = 0; iteration < 20; iteration++) {
+    let next = best;
+    for (let si = -1; si <= 1; si++) {
+      for (let ai = -1; ai <= 1; ai++) {
+        for (let yi = -1; yi <= 1; yi++) {
+          for (let xi = -1; xi <= 1; xi++) {
+            if (!si && !ai && !yi && !xi) continue;
+            const candidate = move(best.transform, steps, xi, yi, si, ai);
+            const score = correlation(points, variant, candidate);
+            if (score > next.score) next = { transform: candidate, score };
+          }
+        }
+      }
+    }
+    if (next === best) break;
+    best = next;
+  }
+  return best;
+}
+
+function move(origin: Similarity, steps: Steps, xi: number, yi: number, si: number, ai: number): Similarity {
+  return {
+    ...origin,
+    scale: origin.scale + si * steps.scale,
+    angle: origin.angle + ai * steps.angle,
+    tx: origin.tx + xi * steps.shift,
+    ty: origin.ty + yi * steps.shift,
+  };
 }
 
 type Points = { xs: Float32Array; ys: Float32Array; values: Float32Array };

@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import { AvatarBehavior, blinkCurve, type BehaviorInput } from "@/features/avatar/behavior";
 import { analyzeFrame, approach, MORA_MS, mouthAt, textToMorae } from "@/features/avatar/lip-sync";
 import {
+  avatarManifestSchema,
+  BUILTIN_AVATARS,
   manifestFromPoints,
   PLACEHOLDER_AVATAR,
+  STANDARD_AVATAR,
   validateFacePoints,
   viewRect,
   type FacePoints,
@@ -49,13 +52,32 @@ describe("manifest", () => {
     const view = viewRect(PLACEHOLDER_AVATAR);
     expect(view.x).toBeGreaterThanOrEqual(0);
     expect(view.y).toBeGreaterThanOrEqual(0);
-    expect(view.x + view.size).toBeLessThanOrEqual(1024);
-    expect(view.y + view.size).toBeLessThanOrEqual(1024);
+    expect(view.width).toBe(view.height);
+    expect(view.x + view.width).toBeLessThanOrEqual(1024);
+    expect(view.y + view.height).toBeLessThanOrEqual(1024);
     expect(view.y).toBeLessThan(PLACEHOLDER_AVATAR.headTop.y);
 
     const small = viewRect(manifestFromPoints(placeholderPoints, { src: "x", width: 700, height: 700 }));
-    expect(small.size).toBeLessThanOrEqual(700);
-    expect(small.x + small.size).toBeLessThanOrEqual(700);
+    expect(small.width).toBeLessThanOrEqual(700);
+    expect(small.x + small.width).toBeLessThanOrEqual(700);
+  });
+
+  it("表示範囲の指定があれば、その範囲(縦横比は自由)を使う", () => {
+    expect(viewRect(STANDARD_AVATAR)).toEqual({ x: 0, y: 0, width: 1024, height: 559 });
+    expect(viewRect({ ...STANDARD_AVATAR, view: { x: -10, y: 0, width: 2000, height: 300 } })).toEqual({ x: 0, y: 0, width: 1024, height: 300 });
+  });
+
+  it("用意している顔の設定は、形式どおりで顔として自然な配置になっている", () => {
+    for (const avatar of BUILTIN_AVATARS) {
+      expect(avatarManifestSchema.safeParse(avatar).success).toBe(true);
+      const problem = validateFacePoints({
+        leftEye: avatar.eyes[0].center,
+        rightEye: avatar.eyes[1].center,
+        mouth: avatar.mouth.center,
+        chin: avatar.chin,
+      });
+      expect(problem).toBeNull();
+    }
   });
 
   it("描画用の形を作る", () => {

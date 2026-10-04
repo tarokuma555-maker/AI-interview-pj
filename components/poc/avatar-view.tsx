@@ -3,12 +3,18 @@
 import { useEffect, useRef, useState } from "react";
 import { AvatarBehavior, type AvatarInputs } from "@/features/avatar/behavior";
 import { LipSync } from "@/features/avatar/lip-sync";
-import type { AvatarManifest } from "@/features/avatar/manifest";
+import { viewRect, type AvatarManifest } from "@/features/avatar/manifest";
 import { MouthImageMixer } from "@/features/avatar/mouth-images";
 import { createAvatarSurface, type AvatarSurface } from "@/features/avatar/renderer";
 import { reducePose } from "@/features/avatar/rig";
 
 type LoadState = "loading" | "animated" | "static" | "error";
+
+/** 横長の画像は、Web面接の画面のように横長の枠で表示する */
+export function isWideAvatar(manifest: AvatarManifest): boolean {
+  const view = viewRect(manifest);
+  return view.width / view.height > 1.2;
+}
 
 /** 面接官のアバターを描く。getInputs は描画のたびに呼ばれる */
 export function AvatarView({ manifest, getInputs }: { manifest: AvatarManifest; getInputs: () => AvatarInputs }) {
@@ -32,10 +38,12 @@ export function AvatarView({ manifest, getInputs }: { manifest: AvatarManifest; 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
     const resize = () => {
-      const size = Math.round(canvas.clientWidth * Math.min(2, window.devicePixelRatio || 1));
-      if (size > 0 && canvas.width !== size) {
-        canvas.width = size;
-        canvas.height = size;
+      const scale = Math.min(2, window.devicePixelRatio || 1);
+      const width = Math.round(canvas.clientWidth * scale);
+      const height = Math.round(canvas.clientHeight * scale);
+      if (width > 0 && height > 0 && (canvas.width !== width || canvas.height !== height)) {
+        canvas.width = width;
+        canvas.height = height;
       }
     };
     const observer = new ResizeObserver(resize);
@@ -78,8 +86,9 @@ export function AvatarView({ manifest, getInputs }: { manifest: AvatarManifest; 
     };
   }, [manifest]);
 
+  const view = viewRect(manifest);
   return (
-    <div className="relative aspect-square w-full">
+    <div className="relative w-full" style={{ aspectRatio: `${view.width} / ${view.height}` }}>
       <canvas
         ref={canvasRef}
         className={`h-full w-full transition-opacity duration-300 ${state === "animated" || state === "static" ? "opacity-100" : "opacity-0"}`}

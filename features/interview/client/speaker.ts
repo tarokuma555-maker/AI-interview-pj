@@ -1,4 +1,5 @@
 import type { VoiceState } from "@/features/avatar/lip-sync";
+import { pickBrowserVoice, type VoiceGender } from "@/lib/speech/voices";
 
 /**
  * 面接官の発言を順番に再生する(設計書 3.6)。
@@ -26,6 +27,8 @@ export class Speaker {
   constructor(
     private readonly context: AudioContext,
     private readonly events: SpeakerEvents,
+    /** ブラウザ標準の読み上げで優先する声の性別(アバターに合わせる) */
+    private readonly voiceGender?: VoiceGender,
   ) {
     this.analyser = context.createAnalyser();
     this.analyser.fftSize = 1024;
@@ -127,7 +130,7 @@ export class Speaker {
     await new Promise<void>((resolve) => {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = "ja-JP";
-      const japanese = speechSynthesis.getVoices().find((v) => v.lang.startsWith("ja"));
+      const japanese = pickBrowserVoice(speechSynthesis.getVoices(), this.voiceGender);
       if (japanese) utterance.voice = japanese;
       utterance.onstart = () => {
         started.voice = { kind: "speech", text, startedAt: performance.now() };

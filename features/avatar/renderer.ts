@@ -128,7 +128,7 @@ precision highp float;
 varying vec2 vUv;
 uniform sampler2D uImage;
 uniform vec2 uImageSize;
-uniform vec3 uView;
+uniform vec4 uView;
 uniform float uZoom;
 uniform float uRoll0;
 uniform float uUnit;
@@ -239,14 +239,16 @@ vec2 mouthInverse(vec2 q, out float cavity, out vec3 cavityColor) {
       float y01 = clamp((l.y + up) / (down + up), 0.0, 1.0);
       float edgePx = min(l.y + up, down - l.y) * uMouthHalf;
       cavity = clamp(edgePx / 1.2, 0.0, 1.0);
-      vec3 color = mix(vec3(0.34, 0.11, 0.11), vec3(0.12, 0.035, 0.045), smoothstep(0.0, 0.5, y01));
-      float teethPx = 0.13 * uMouthHalf;
+      // 写真にもなじむよう、口の中は彩度を抑えた暗い色、歯は少しくすんだ白にする
+      vec3 color = mix(vec3(0.22, 0.09, 0.09), vec3(0.07, 0.03, 0.035), smoothstep(0.0, 0.6, y01));
+      float teethPx = 0.11 * uMouthHalf;
       float fromTop = (l.y + up) * uMouthHalf;
       float openPx = (down + up) * uMouthHalf;
-      float teeth = (1.0 - smoothstep(teethPx - 1.0, teethPx, fromTop)) * (1.0 - smoothstep(0.55, 0.7, abs(m.x))) * smoothstep(5.0, 9.0, openPx);
-      color = mix(color, vec3(0.93, 0.91, 0.87) * (1.0 - 0.3 * abs(m.x)), teeth);
+      float teeth = (1.0 - smoothstep(teethPx - 1.0, teethPx, fromTop)) * (1.0 - smoothstep(0.45, 0.62, abs(m.x))) * smoothstep(5.0, 9.0, openPx);
+      vec3 teethColor = vec3(0.86, 0.83, 0.78) * (1.0 - 0.45 * abs(m.x)) * (1.0 - 0.25 * clamp(fromTop / teethPx, 0.0, 1.0));
+      color = mix(color, teethColor, teeth);
       float tongue = smoothstep(0.62, 0.92, y01) * (1.0 - smoothstep(0.35, 0.6, abs(m.x)));
-      color = mix(color, vec3(0.62, 0.27, 0.28), tongue * 0.85);
+      color = mix(color, vec3(0.50, 0.24, 0.25), tongue * 0.8);
       cavityColor = color;
       ys = 0.0;
     }
@@ -267,7 +269,7 @@ vec3 patchColor(sampler2D tex, vec4 rect, vec2 q, vec3 fallback) {
 }
 
 void main() {
-  vec2 p = uView.xy + (vec2(0.5) + (vUv - vec2(0.5)) / uZoom) * uView.z;
+  vec2 p = uView.xy + (vec2(0.5) + (vUv - vec2(0.5)) / uZoom) * uView.zw;
   p.y -= uBreath * 0.012 * uUnit;
   vec2 head = headInverse(p);
   vec2 q = head;
@@ -408,7 +410,7 @@ class WebGlSurface implements AvatarSurface {
     gl.uniform4f(u.uEyeEllipse1, eyeEllipses[1].cx, eyeEllipses[1].cy, eyeEllipses[1].rx, eyeEllipses[1].ry);
     if (blink) gl.uniform4f(u.uEyesRect, blink.rect.x, blink.rect.y, blink.rect.width, blink.rect.height);
     gl.uniform2f(u.uImageSize, rig.imageSize[0], rig.imageSize[1]);
-    gl.uniform3f(u.uView, rig.view.x, rig.view.y, rig.view.size);
+    gl.uniform4f(u.uView, rig.view.x, rig.view.y, rig.view.width, rig.view.height);
     gl.uniform1f(u.uZoom, ZOOM);
     gl.uniform1f(u.uRoll0, rig.roll);
     gl.uniform1f(u.uUnit, rig.unit);
@@ -521,14 +523,14 @@ class CanvasSurface implements AvatarSurface {
     if (!ctx) return;
     const { width, height } = this.canvas;
     const { view, pivot, unit, imageSize } = this.rig;
-    const scale = (width / view.size) * ZOOM;
+    const scale = (width / view.width) * ZOOM;
     const toTexture = this.image.width / imageSize[0];
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, width, height);
     ctx.translate(width / 2, height / 2);
     ctx.scale(scale, scale);
-    ctx.translate(-(view.x + view.size / 2), -(view.y + view.size / 2) + pose.breath * 0.012 * unit);
+    ctx.translate(-(view.x + view.width / 2), -(view.y + view.height / 2) + pose.breath * 0.012 * unit);
     ctx.translate(pivot.x + pose.headX * unit, pivot.y + (pose.headY + 0.06 * pose.nod) * unit);
     ctx.rotate(pose.headRoll * 0.5);
     ctx.translate(-pivot.x, -pivot.y);

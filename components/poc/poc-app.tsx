@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { InterviewController, type ControllerConfig } from "@/features/interview/client/interview-controller";
 import { ApiError, fetchConfig, type PocConfig } from "@/features/interview/client/poc-api";
 import { isWebSpeechSupported } from "@/features/interview/client/stt/web-speech";
-import { AvatarPicker, DEFAULT_AVATAR_SETTINGS, parseAvatarSettings, resolveAvatar, type AvatarSettings } from "./avatar-picker";
+import { VOICES, type VoiceGender } from "@/lib/speech/voices";
+import { DEFAULT_AVATAR_SETTINGS, parseAvatarSettings, resolveAvatar, type AvatarSettings } from "@/features/avatar/settings";
+import { AvatarPicker } from "./avatar-picker";
 import { DEFAULT_CONTEXT, SetupForm, type SetupValues } from "./setup-form";
 import { RoomView } from "./room-view";
 
@@ -60,8 +62,9 @@ export function PocApp() {
       save(CODE_KEY, entered);
       setCode(entered);
       setConfig(result);
-      setInitial(defaultValues(result, load<SetupValues>(FORM_KEY)));
-      setAvatar(parseAvatarSettings(load<unknown>(AVATAR_KEY)));
+      const savedAvatar = parseAvatarSettings(load<unknown>(AVATAR_KEY));
+      setAvatar(savedAvatar);
+      setInitial(defaultValues(result, load<SetupValues>(FORM_KEY), resolveAvatar(savedAvatar)?.interviewer?.voice));
     } catch (error) {
       setCodeError(error instanceof ApiError ? error.message : "接続できませんでした");
     } finally {
@@ -73,7 +76,14 @@ export function PocApp() {
     save(FORM_KEY, values);
     controller?.dispose();
     const next = new InterviewController();
-    const controllerConfig: ControllerConfig = { accessCode: code, ...values };
+    // 面接官の名前と声は、選んだアバターに合わせる(名札と名乗りを一致させる)
+    const interviewer = resolveAvatar(avatar)?.interviewer;
+    const controllerConfig: ControllerConfig = {
+      accessCode: code,
+      ...values,
+      settings: { ...values.settings, interviewerName: interviewer?.name },
+      voiceGender: interviewer?.voice,
+    };
     setController(next);
     void next.prepare(controllerConfig);
   }
@@ -131,7 +141,7 @@ export function PocApp() {
   );
 }
 
-function defaultValues(config: PocConfig, saved: SetupValues | null): SetupValues {
+function defaultValues(config: PocConfig, saved: SetupValues | null, voiceGender?: VoiceGender): SetupValues {
   const sttDefault = isWebSpeechSupported() ? "webspeech" : "text";
   const ttsDefault = config.azureSpeech ? "azure" : config.aiMode === "mock" ? "mock" : "browser";
   const base: SetupValues = {
@@ -140,7 +150,8 @@ function defaultValues(config: PocConfig, saved: SetupValues | null): SetupValue
       style: "standard",
       durationMin: 5,
       interviewerModel: config.interviewerModels[0]?.key ?? "sonnet",
-      voiceId: config.voices[0]?.id ?? "female_a",
+      // Azure の声は、アバターの性別に合う声を最初の選択にする
+      voiceId: VOICES.find((v) => v.gender === voiceGender && config.voices.some((c) => c.id === v.id))?.id ?? config.voices[0]?.id ?? "female_a",
     },
     context: DEFAULT_CONTEXT,
     sttProvider: config.azureSpeech ? "azure" : sttDefault,

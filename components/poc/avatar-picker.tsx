@@ -5,47 +5,22 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AvatarInputs } from "@/features/avatar/behavior";
 import { textToMorae, type VoiceState } from "@/features/avatar/lip-sync";
 import {
-  avatarManifestSchema,
   FACE_POINT_LABELS,
   FACE_POINT_ORDER,
   manifestFromPoints,
-  PLACEHOLDER_AVATAR,
   validateFacePoints,
-  type AvatarManifest,
   type FacePoints,
   type Point,
 } from "@/features/avatar/manifest";
-import { AvatarView } from "./avatar-view";
+import { BUILTINS, isBuiltin, resolveAvatar, type AvatarSettings } from "@/features/avatar/settings";
+import { AvatarView, isWideAvatar } from "./avatar-view";
 import { ExpressionSlots } from "./expression-slots";
-
-/** アバターの設定(このブラウザに保存する) */
-export type AvatarSettings = {
-  selected: "placeholder" | "custom" | "none";
-  /** 自分で用意した画像。画像はサーバーに送らず、このブラウザの中だけで使う */
-  custom: AvatarManifest | null;
-};
-
-export const DEFAULT_AVATAR_SETTINGS: AvatarSettings = { selected: "placeholder", custom: null };
-
-export function parseAvatarSettings(raw: unknown): AvatarSettings {
-  if (!raw || typeof raw !== "object") return DEFAULT_AVATAR_SETTINGS;
-  const value = raw as Partial<AvatarSettings>;
-  const custom = avatarManifestSchema.safeParse(value.custom);
-  const selected = value.selected === "custom" || value.selected === "none" ? value.selected : "placeholder";
-  return { selected: selected === "custom" && !custom.success ? "placeholder" : selected, custom: custom.success ? custom.data : null };
-}
-
-/** 面接で表示するアバター(表示しない場合は null) */
-export function resolveAvatar(settings: AvatarSettings): AvatarManifest | null {
-  if (settings.selected === "none") return null;
-  if (settings.selected === "custom" && settings.custom) return settings.custom;
-  return PLACEHOLDER_AVATAR;
-}
 
 const DEMO_TEXT = "本日はよろしくお願いいたします。それでは、まず自己紹介をお願いできますか。";
 const DEMO_MS = textToMorae(DEMO_TEXT).reduce((sum, mora) => sum + mora.ms, 0);
 const MAX_IMAGE_SIZE = 1024;
 const OPTIONS: { value: AvatarSettings["selected"]; label: string }[] = [
+  { value: "sato", label: "佐藤 健一(写真)" },
   { value: "placeholder", label: "仮の顔(イラスト)" },
   { value: "custom", label: "自分で用意した画像" },
   { value: "none", label: "表示しない" },
@@ -126,10 +101,12 @@ export function AvatarPicker({
     const manifest = manifestFromPoints(facePoints, draft, `custom-${Date.now()}`);
     setDraft(null);
     setError(null);
-    onChange({ selected: "custom", custom: manifest });
+    onChange({ ...value, selected: "custom", custom: manifest });
   }
 
   const preview = wantsCustom ? value.custom : resolveAvatar(value);
+  // 表情の画像を追加できる顔(自分で用意した画像と、表情の画像を持たない用意済みの顔)
+  const builtinId = !wantsCustom && isBuiltin(value.selected) && !BUILTINS[value.selected].expressions ? value.selected : null;
   const nextPoint = draft ? FACE_POINT_ORDER[draft.points.length] : null;
 
   return (
@@ -199,7 +176,7 @@ export function AvatarPicker({
 
       {preview && !draft && (
         <div className="flex flex-wrap items-end gap-4">
-          <div className="w-48 overflow-hidden rounded-xl border border-border">
+          <div className={`overflow-hidden rounded-xl border border-border ${isWideAvatar(preview) ? "w-full max-w-md" : "w-48"}`}>
             <AvatarView manifest={preview} getInputs={getInputs} />
           </div>
           <div className="flex flex-col gap-2 text-sm">
@@ -225,7 +202,14 @@ export function AvatarPicker({
       )}
 
       {wantsCustom && value.custom && !draft && (
-        <ExpressionSlots manifest={value.custom} onChange={(custom) => onChange({ selected: "custom", custom })} />
+        <ExpressionSlots key={value.custom.id} manifest={value.custom} onChange={(custom) => onChange({ ...value, selected: "custom", custom })} />
+      )}
+      {builtinId && preview && (
+        <ExpressionSlots
+          key={builtinId}
+          manifest={preview}
+          onChange={(next) => onChange({ ...value, builtinExpressions: { ...value.builtinExpressions, [builtinId]: next.expressions } })}
+        />
       )}
 
       {saveFailed && value.selected === "custom" && (

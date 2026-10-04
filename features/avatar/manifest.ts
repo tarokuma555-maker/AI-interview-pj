@@ -33,6 +33,12 @@ export const avatarManifestSchema = z.object({
   chin: pointSchema,
   /** 頭のてっぺん(髪を含む) */
   headTop: pointSchema,
+  /** 面接官としての名前(名札などと合わせ、面接官が名乗るときに使う)と声の性別 */
+  interviewer: z
+    .object({ name: z.string().max(40).optional(), voice: z.enum(["male", "female"]).optional() })
+    .optional(),
+  /** 画面に表示する範囲(縦横比は自由)。省略時は頭から肩までが入る正方形 */
+  view: rectSchema.optional(),
   /** 同じ人物の表情違いの画像。あれば口とまばたきはこの画像を重ねて表し、なければ元画像を変形して表す */
   expressions: z
     .object({
@@ -60,6 +66,25 @@ export const FACE_POINT_LABELS: Record<keyof FacePoints, string> = {
   chin: "あごの先",
 };
 
+/** 標準の面接官(写真風。public/avatars/sato/)。位置は画像を拡大して読み取った値 */
+export const STANDARD_AVATAR: AvatarManifest = {
+  id: "sato",
+  name: "面接官 佐藤 健一",
+  src: "/avatars/sato/neutral.webp",
+  width: 1024,
+  height: 559,
+  eyes: [
+    { center: { x: 485, y: 168 }, width: 24, height: 7 },
+    { center: { x: 550, y: 167.5 }, width: 24, height: 7 },
+  ],
+  mouth: { left: { x: 487, y: 242 }, right: { x: 551, y: 241 }, center: { x: 519, y: 242 } },
+  chin: { x: 519, y: 297 },
+  headTop: { x: 520, y: 28 },
+  interviewer: { name: "佐藤 健一", voice: "male" },
+  // 机と名札まで入れて、Web面接の画面のように見せる
+  view: { x: 0, y: 0, width: 1024, height: 559 },
+};
+
 /** 試作版の仮の顔(public/avatars/placeholder/) */
 export const PLACEHOLDER_AVATAR: AvatarManifest = {
   id: "placeholder",
@@ -74,6 +99,7 @@ export const PLACEHOLDER_AVATAR: AvatarManifest = {
   mouth: { left: { x: 461, y: 575 }, right: { x: 563, y: 575 }, center: { x: 512, y: 577 } },
   chin: { x: 512, y: 664 },
   headTop: { x: 512, y: 182 },
+  interviewer: { voice: "male" },
   expressions: {
     mouth: Object.fromEntries(MOUTH_IMAGE_KEYS.map((key) => [key, { src: `/avatars/placeholder/mouth-${key}.svg` }])),
     blink: { src: "/avatars/placeholder/blink.svg" },
@@ -128,8 +154,14 @@ export function validateFacePoints(points: FacePoints): string | null {
   return null;
 }
 
-/** 画面に表示する範囲(頭から肩まで入る正方形)。画像からはみ出す場合は内側に寄せる */
-export function viewRect(manifest: AvatarManifest): { x: number; y: number; size: number } {
+/** 用意している顔(設定画面で選べる順) */
+export const BUILTIN_AVATARS = [STANDARD_AVATAR, PLACEHOLDER_AVATAR] as const;
+
+/**
+ * 画面に表示する範囲。指定がなければ、頭から肩まで入る正方形にする(画像からはみ出す場合は内側に寄せる)。
+ */
+export function viewRect(manifest: AvatarManifest): Rect {
+  if (manifest.view) return clipRect(manifest.view, manifest) ?? { x: 0, y: 0, width: manifest.width, height: manifest.height };
   const faceHeight = manifest.chin.y - manifest.headTop.y;
   const size = Math.min(faceHeight * 1.9, manifest.width, manifest.height);
   const centerX = (manifest.headTop.x + manifest.chin.x) / 2;
@@ -138,7 +170,8 @@ export function viewRect(manifest: AvatarManifest): { x: number; y: number; size
   return {
     x: clamp(centerX - size / 2, manifest.width - size),
     y: clamp(centerY - size / 2, manifest.height - size),
-    size,
+    width: size,
+    height: size,
   };
 }
 

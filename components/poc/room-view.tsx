@@ -3,7 +3,7 @@
 import { useState, useSyncExternalStore } from "react";
 import type { AvatarManifest } from "@/features/avatar/manifest";
 import type { InterviewController, RoomStatus } from "@/features/interview/client/interview-controller";
-import { AvatarView } from "./avatar-view";
+import { AvatarView, isWideAvatar } from "./avatar-view";
 import { LatencyPanel } from "./latency-panel";
 
 const STATUS_LABELS: Record<RoomStatus, string> = {
@@ -63,7 +63,7 @@ export function RoomView({
         <div className="flex flex-col items-center gap-3 py-4">
           {avatar ? (
             <div
-              className={`w-full max-w-64 overflow-hidden rounded-2xl border-4 transition-colors sm:max-w-80 ${
+              className={`w-full overflow-hidden rounded-2xl border-4 transition-colors ${isWideAvatar(avatar) ? "max-w-2xl" : "max-w-64 sm:max-w-80"} ${
                 snap.status === "speaking" ? "border-accent" : "border-border"
               }`}
             >

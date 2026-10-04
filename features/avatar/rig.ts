@@ -1,4 +1,4 @@
-import { distance, midpoint, viewRect, type AvatarManifest, type Point } from "./manifest";
+import { distance, midpoint, viewRect, type AvatarManifest, type Point, type Rect } from "./manifest";
 import type { MouthImageWeight } from "./mouth-images";
 
 /** 1フレーム分の顔の動き。値はすべて顔の大きさに依存しない単位 */
@@ -37,7 +37,7 @@ export const NEUTRAL_POSE: AvatarPose = {
 /** 描画に使う顔の形(画像のピクセル単位)。画像ごとに1回だけ計算する */
 export type FaceRig = {
   imageSize: [number, number];
-  view: { x: number; y: number; size: number };
+  view: Rect;
   /** 顔の傾き(目を結ぶ線の角度) */
   roll: number;
   eyes: [{ center: Point; halfWidth: number; halfHeight: number }, { center: Point; halfWidth: number; halfHeight: number }];
