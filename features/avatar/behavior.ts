@@ -70,6 +70,7 @@ export class AvatarBehavior {
       headY: 0.006 * wave(4.7, 2.1) + 0.012 * this.energy + 0.01 * this.tilt,
       nod: this.nod(now),
       breath: wave(4.2),
+      mouthImages: [],
     };
   }
 

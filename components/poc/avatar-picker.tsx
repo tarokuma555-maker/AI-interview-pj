@@ -16,6 +16,7 @@ import {
   type Point,
 } from "@/features/avatar/manifest";
 import { AvatarView } from "./avatar-view";
+import { ExpressionSlots } from "./expression-slots";
 
 /** アバターの設定(このブラウザに保存する) */
 export type AvatarSettings = {
@@ -221,6 +222,10 @@ export function AvatarPicker({
             )}
           </div>
         </div>
+      )}
+
+      {wantsCustom && value.custom && !draft && (
+        <ExpressionSlots manifest={value.custom} onChange={(custom) => onChange({ selected: "custom", custom })} />
       )}
 
       {saveFailed && value.selected === "custom" && (

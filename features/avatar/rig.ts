@@ -1,4 +1,5 @@
 import { distance, midpoint, viewRect, type AvatarManifest, type Point } from "./manifest";
+import type { MouthImageWeight } from "./mouth-images";
 
 /** 1フレーム分の顔の動き。値はすべて顔の大きさに依存しない単位 */
 export type AvatarPose = {
@@ -17,6 +18,8 @@ export type AvatarPose = {
   nod: number;
   /** 呼吸による体の上下(-1〜1) */
   breath: number;
+  /** 重ねる口の形の画像と重み(表情の画像がある場合) */
+  mouthImages: MouthImageWeight[];
 };
 
 export const NEUTRAL_POSE: AvatarPose = {
@@ -28,6 +31,7 @@ export const NEUTRAL_POSE: AvatarPose = {
   headY: 0,
   nod: 0,
   breath: 0,
+  mouthImages: [],
 };
 
 /** 描画に使う顔の形(画像のピクセル単位)。画像ごとに1回だけ計算する */

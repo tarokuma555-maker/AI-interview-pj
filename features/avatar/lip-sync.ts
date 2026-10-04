@@ -4,7 +4,8 @@
  * ブラウザ標準の読み上げは音を取り出せないため、文章の母音から口の動きを作る。
  */
 
-export type MouthShape = { open: number; wide: number };
+/** 口の開き(0〜1)と形(-1 すぼめる 〜 +1 横に広げる)。文章から作る場合は、発音中の母音も持つ */
+export type MouthShape = { open: number; wide: number; vowel?: "a" | "i" | "u" | "e" | "o" };
 
 /** 面接官の声の状態(Speaker が返す) */
 export type VoiceState =
@@ -55,7 +56,7 @@ export type Mora = { vowel: Vowel; ms: number };
 /** 1拍の長さ(1秒に約8拍。日本語の読み上げの標準的な速さ) */
 export const MORA_MS = 125;
 
-const VOWEL_SHAPES: Record<Vowel, MouthShape> = {
+export const VOWEL_SHAPES: Record<Vowel, MouthShape> = {
   a: { open: 0.9, wide: 0.1 },
   i: { open: 0.3, wide: 0.75 },
   u: { open: 0.3, wide: -0.75 },
@@ -130,7 +131,8 @@ export function mouthAt(morae: Mora[], elapsedMs: number): MouthShape {
       const shape = VOWEL_SHAPES[mora.vowel];
       // 拍の頭(子音)では少し閉じ、母音で開く
       const envelope = 0.45 + 0.55 * Math.sin(Math.PI * (t / mora.ms));
-      return { open: shape.open * envelope, wide: shape.wide };
+      const vowel = mora.vowel === "n" || mora.vowel === "pause" ? undefined : mora.vowel;
+      return { open: shape.open * envelope, wide: shape.wide, vowel };
     }
     t -= mora.ms;
   }
@@ -161,6 +163,7 @@ export class LipSync {
     this.shape = {
       open: approach(this.shape.open, target.open, dtMs, openTau),
       wide: approach(this.shape.wide, target.wide, dtMs, WIDE_MS),
+      vowel: target.vowel,
     };
     return this.shape;
   }

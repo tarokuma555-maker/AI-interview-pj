@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- 試作版の仮の面接官(イラスト)。目・口・あごの位置は features/avatar/manifest.ts の PLACEHOLDER_AVATAR と揃える。表情違いの画像は scripts/generate-placeholder-avatar.mjs で作る -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eef2f6"/>
+      <stop offset="1" stop-color="#d3dbe4"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="0.5" cy="0.42" r="0.5">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="skin" cx="0.46" cy="0.42" r="0.62">
+      <stop offset="0" stop-color="#f6d6bb"/>
+      <stop offset="0.7" stop-color="#efc6a4"/>
+      <stop offset="1" stop-color="#dfab86"/>
+    </radialGradient>
+    <linearGradient id="neck" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d49c78"/>
+      <stop offset="0.45" stop-color="#e8b994"/>
+      <stop offset="1" stop-color="#ebbf9b"/>
+    </linearGradient>
+    <linearGradient id="suit" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2d3a55"/>
+      <stop offset="1" stop-color="#1e2840"/>
+    </linearGradient>
+    <linearGradient id="hair" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a302b"/>
+      <stop offset="1" stop-color="#241d1a"/>
+    </linearGradient>
+    <linearGradient id="tie" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3f5f8f"/>
+      <stop offset="1" stop-color="#2c4670"/>
+    </linearGradient>
+    <radialGradient id="blush" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#e98f86" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#e98f86" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="eyeL"><path d="M407 441 Q440 420 473 439 Q440 457 407 441 Z"/></clipPath>
+    <clipPath id="eyeR"><path d="M551 439 Q584 420 617 441 Q584 457 551 439 Z"/></clipPath>
+  </defs>
+
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect x="512" y="0" width="512" height="1024" fill="#ffffff" opacity="0.18"/>
+  <circle cx="512" cy="430" r="420" fill="url(#halo)"/>
+
+  <!-- 体(スーツ・シャツ・ネクタイ) -->
+  <path d="M90 1024 C100 880 160 812 300 776 L430 736 L512 760 L594 736 L724 776 C864 812 924 880 934 1024 Z" fill="url(#suit)"/>
+  <!-- 首 -->
+  <path d="M458 600 L566 600 L580 752 L512 808 L444 752 Z" fill="url(#neck)"/>
+  <path d="M452 640 C480 690 544 690 572 640 L572 690 C544 712 480 712 452 690 Z" fill="#c98f6c" opacity="0.45"/>
+
+  <path d="M424 744 L512 800 L600 744 L606 790 L512 1024 L418 790 Z" fill="#f4f6f9"/>
+  <path d="M424 744 L470 822 L438 838 L404 772 Z" fill="#e3e8ee"/>
+  <path d="M600 744 L554 822 L586 838 L620 772 Z" fill="#e3e8ee"/>
+  <path d="M493 806 L531 806 L540 834 L512 852 L484 834 Z" fill="url(#tie)"/>
+  <path d="M488 850 L536 850 L556 1024 L468 1024 Z" fill="url(#tie)"/>
+  <path d="M404 772 L438 838 L476 1024 L300 1024 L340 820 Z" fill="#26324b"/>
+  <path d="M620 772 L586 838 L548 1024 L724 1024 L684 820 Z" fill="#26324b"/>
+  <path d="M300 776 L404 772 L340 820 Z" fill="#1b2438"/>
+  <path d="M724 776 L620 772 L684 820 Z" fill="#1b2438"/>
+
+  <!-- 耳 -->
+  <path d="M358 420 C334 410 322 432 328 462 C334 494 346 520 368 520 Z" fill="#e7b591"/>
+  <path d="M666 420 C690 410 702 432 696 462 C690 494 678 520 656 520 Z" fill="#e7b591"/>
+  <path d="M352 440 C342 446 342 470 352 490" stroke="#c98f6c" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M672 440 C682 446 682 470 672 490" stroke="#c98f6c" stroke-width="4" fill="none" stroke-linecap="round"/>
+
+  <!-- 顔 -->
+  <path d="M512 232 C606 232 668 296 670 398 C672 468 660 536 630 592 C600 640 558 664 512 664 C466 664 424 640 394 592 C364 536 352 468 354 398 C356 296 418 232 512 232 Z" fill="url(#skin)"/>
+  <ellipse cx="420" cy="508" rx="42" ry="30" fill="url(#blush)"/>
+  <ellipse cx="604" cy="508" rx="42" ry="30" fill="url(#blush)"/>
+
+  <!-- 髪 -->
+  <path d="M352 290 C366 250 390 222 424 206 C470 178 560 174 614 200 C678 232 700 320 676 452 C668 390 658 334 630 306 C600 300 560 296 520 284 C490 276 470 266 452 262 C430 290 404 316 384 340 C368 372 360 410 348 452 C340 400 342 330 352 290 Z" fill="url(#hair)"/>
+  <path d="M452 262 C486 300 560 312 630 306 C600 286 560 280 520 276 C496 272 470 266 452 262 Z" fill="#2c2420"/>
+  <path d="M440 222 C490 204 560 206 600 226" stroke="#57483f" stroke-width="6" fill="none" stroke-linecap="round" opacity="0.6"/>
+
+  <!-- 眉 -->
+  <path d="M404 404 C420 392 446 388 476 396" stroke="#2f2622" stroke-width="10" fill="none" stroke-linecap="round"/>
+  <path d="M548 396 C578 388 604 392 620 404" stroke="#2f2622" stroke-width="10" fill="none" stroke-linecap="round"/>
+
+  <!-- 目 -->
+  <path d="M412 430 Q440 414 468 426" stroke="#d29a78" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M556 426 Q584 414 612 430" stroke="#d29a78" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M407 441 Q440 420 473 439 Q440 457 407 441 Z" fill="#fbfaf7"/>
+  <path d="M551 439 Q584 420 617 441 Q584 457 551 439 Z" fill="#fbfaf7"/>
+  <g clip-path="url(#eyeL)">
+    <circle cx="441" cy="440" r="12.5" fill="#4a3428"/>
+    <circle cx="441" cy="440" r="6" fill="#140d0a"/>
+    <circle cx="445" cy="435.5" r="3" fill="#ffffff"/>
+    <path d="M407 441 Q440 420 473 439 L473 432 L407 432 Z" fill="#000000" opacity="0.12"/>
+  </g>
+  <g clip-path="url(#eyeR)">
+    <circle cx="583" cy="440" r="12.5" fill="#4a3428"/>
+    <circle cx="583" cy="440" r="6" fill="#140d0a"/>
+    <circle cx="587" cy="435.5" r="3" fill="#ffffff"/>
+    <path d="M551 439 Q584 420 617 441 L617 432 L551 432 Z" fill="#000000" opacity="0.12"/>
+  </g>
+  <path d="M404 443 Q440 417 475 437" stroke="#2a1f1b" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+  <path d="M549 437 Q584 417 620 443" stroke="#2a1f1b" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+  <path d="M414 449 Q440 458 468 445" stroke="#c99478" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.8"/>
+  <path d="M556 445 Q584 458 610 449" stroke="#c99478" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.8"/>
+
+  <!-- 鼻 -->
+  <path d="M520 440 C524 470 530 498 536 516" stroke="#d9a07c" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.7"/>
+  <ellipse cx="512" cy="530" rx="26" ry="9" fill="#d69c78" opacity="0.35"/>
+  <path d="M492 526 C500 536 524 536 532 526" stroke="#b97c5c" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+
+  <!-- 口「e」 -->
+  <defs><clipPath id="mouth-e"><path d="M460 576 C480.8 571.5 500.6 572 512 572 C523.4 572 543.2 571.5 564 576 C543.2 595.9 523.4 595 512 595 C500.6 595 480.8 595.9 460 576 Z"/></clipPath></defs>
+  <path d="M500 551 C506 557 518 557 524 551" stroke="#d9a07c" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.6"/>
+  <path d="M460 576 C480.8 571.5 500.6 572 512 572 C523.4 572 543.2 571.5 564 576 C543.2 595.9 523.4 595 512 595 C500.6 595 480.8 595.9 460 576 Z" fill="#3b1316"/>
+  <g clip-path="url(#mouth-e)">
+    <ellipse cx="512" cy="596.8" rx="46.8" ry="9.9" fill="#5a1d22"/>
+    <ellipse cx="512" cy="594" rx="28.6" ry="6.8" fill="#b0525a"/>
+    <rect x="460" y="570" width="104" height="8" fill="#f2eee6"/>
+    <path d="M460 578 L564 578" stroke="#c9c2b6" stroke-width="1.2"/>
+  </g>
+  <path d="M460 576 C473 564.8 496.4 560.3 506 561.7 Q512 564.4 518 561.7 C527.6 560.3 551 564.8 564 576 C543.2 571.5 523.4 572 512 572 C500.6 572 480.8 571.5 460 576 Z" fill="#c4766a"/>
+  <path d="M460 576 C480.8 595.9 500.6 595 512 595 C523.4 595 543.2 595.9 564 576 C548.4 603.4 527.6 608.8 512 608.8 C496.4 608.8 475.6 603.4 460 576 Z" fill="#d68c7e"/>
+  <path d="M493.8 602.8 Q512 605.8 530.2 602.8" stroke="#e8a99a" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.7"/>
+  <path d="M460 576 C480.8 571.5 500.6 572 512 572 C523.4 572 543.2 571.5 564 576 C543.2 595.9 523.4 595 512 595 C500.6 595 480.8 595.9 460 576 Z" fill="none" stroke="#8e4b42" stroke-width="1.5"/>
+  <path d="M496 623 C506 627 518 627 528 623" stroke="#d9a07c" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.5"/>
+</svg>

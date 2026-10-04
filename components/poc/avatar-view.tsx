@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AvatarBehavior, type AvatarInputs } from "@/features/avatar/behavior";
 import { LipSync } from "@/features/avatar/lip-sync";
 import type { AvatarManifest } from "@/features/avatar/manifest";
+import { MouthImageMixer } from "@/features/avatar/mouth-images";
 import { createAvatarSurface, type AvatarSurface } from "@/features/avatar/renderer";
 import { reducePose } from "@/features/avatar/rig";
 
@@ -23,6 +24,7 @@ export function AvatarView({ manifest, getInputs }: { manifest: AvatarManifest; 
     const canvas = canvasRef.current;
     if (!canvas) return;
     let surface: AvatarSurface | null = null;
+    let mixer = new MouthImageMixer([]);
     let frame = 0;
     let disposed = false;
     const lipSync = new LipSync();
@@ -49,6 +51,7 @@ export function AvatarView({ manifest, getInputs }: { manifest: AvatarManifest; 
       const inputs = inputsRef.current();
       const mouth = lipSync.update(inputs.voice, now, dt);
       const pose = behavior.update(now, { mode: inputs.mode, mouth, candidateVoice: inputs.candidateVoice });
+      pose.mouthImages = mixer.update(mouth, dt);
       surface?.render(reducedMotion.matches ? reducePose(pose, 0.3) : pose);
     };
 
@@ -59,6 +62,7 @@ export function AvatarView({ manifest, getInputs }: { manifest: AvatarManifest; 
           return;
         }
         surface = created;
+        mixer = new MouthImageMixer(created.mouthImageKeys);
         setState(created.animated ? "animated" : "static");
         draw();
       })

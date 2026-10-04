@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- 試作版の仮の面接官(イラスト)。目・口・あごの位置は features/avatar/manifest.ts の PLACEHOLDER_AVATAR と揃える -->
+  <!-- 試作版の仮の面接官(イラスト)。目・口・あごの位置は features/avatar/manifest.ts の PLACEHOLDER_AVATAR と揃える。表情違いの画像は scripts/generate-placeholder-avatar.mjs で作る -->
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#eef2f6"/>
@@ -106,11 +106,19 @@
   <ellipse cx="512" cy="530" rx="26" ry="9" fill="#d69c78" opacity="0.35"/>
   <path d="M492 526 C500 536 524 536 532 526" stroke="#b97c5c" stroke-width="3.5" fill="none" stroke-linecap="round"/>
 
-  <!-- 口(閉じた状態。合わせ目は y=576) -->
-  <path d="M500 556 C506 562 518 562 524 556" stroke="#d9a07c" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.6"/>
-  <path d="M462 575 C478 568 492 564 504 566 C508 567 510 568 512 568 C514 568 516 567 520 566 C532 564 546 568 562 575 C540 578 526 579 512 579 C498 579 484 578 462 575 Z" fill="#c4766a"/>
-  <path d="M465 577 C484 580 498 581 512 581 C526 581 540 580 559 577 C548 594 530 600 512 600 C494 600 476 594 465 577 Z" fill="#d68c7e"/>
-  <path d="M494 588 C504 592 520 592 530 588" stroke="#e8a99a" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.7"/>
-  <path d="M461 575 C486 580 498 580 512 580 C526 580 538 580 563 575" stroke="#8e4b42" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <path d="M496 616 C506 620 518 620 528 616" stroke="#d9a07c" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.5"/>
+  <!-- 口「a」 -->
+  <defs><clipPath id="mouth-a"><path d="M465 576 C483.8 569.3 501.7 570 512 570 C522.3 570 540.2 569.3 559 576 C540.2 608.5 522.3 607 512 607 C501.7 607 483.8 608.5 465 576 Z"/></clipPath></defs>
+  <path d="M500 549 C506 555 518 555 524 549" stroke="#d9a07c" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.6"/>
+  <path d="M465 576 C483.8 569.3 501.7 570 512 570 C522.3 570 540.2 569.3 559 576 C540.2 608.5 522.3 607 512 607 C501.7 607 483.8 608.5 465 576 Z" fill="#3b1316"/>
+  <g clip-path="url(#mouth-a)">
+    <ellipse cx="512" cy="610" rx="42.3" ry="16.5" fill="#5a1d22"/>
+    <ellipse cx="512" cy="606" rx="25.9" ry="11.4" fill="#b0525a"/>
+    <rect x="465" y="568" width="94" height="9" fill="#f2eee6"/>
+    <path d="M465 577 L559 577" stroke="#c9c2b6" stroke-width="1.2"/>
+  </g>
+  <path d="M465 576 C476.8 562.8 497.9 558.3 506 559.7 Q512 562.4 518 559.7 C526.1 558.3 547.3 562.8 559 576 C540.2 569.3 522.3 570 512 570 C501.7 570 483.8 569.3 465 576 Z" fill="#c4766a"/>
+  <path d="M465 576 C483.8 608.5 501.7 607 512 607 C522.3 607 540.2 608.5 559 576 C544.9 615.4 526.1 620.8 512 620.8 C497.9 620.8 479.1 615.4 465 576 Z" fill="#d68c7e"/>
+  <path d="M495.55 614.8 Q512 617.8 528.45 614.8" stroke="#e8a99a" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.7"/>
+  <path d="M465 576 C483.8 569.3 501.7 570 512 570 C522.3 570 540.2 569.3 559 576 C540.2 608.5 522.3 607 512 607 C501.7 607 483.8 608.5 465 576 Z" fill="none" stroke="#8e4b42" stroke-width="1.5"/>
+  <path d="M496 635 C506 639 518 639 528 635" stroke="#d9a07c" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.5"/>
 </svg>
