@@ -66,6 +66,9 @@ export const FACE_POINT_LABELS: Record<keyof FacePoints, string> = {
   chin: "あごの先",
 };
 
+/** 標準の面接官の口元の画像を重ねる範囲(expressionRegions で求めた値) */
+const SATO_MOUTH_RECT: Rect = { x: 446, y: 182, width: 146, height: 158 };
+
 /** 標準の面接官(写真風。public/avatars/sato/)。位置は画像を拡大して読み取った値 */
 export const STANDARD_AVATAR: AvatarManifest = {
   id: "sato",
@@ -83,6 +86,18 @@ export const STANDARD_AVATAR: AvatarManifest = {
   interviewer: { name: "佐藤 健一", voice: "male" },
   // 机と名札まで入れて、Web面接の画面のように見せる
   view: { x: 0, y: 0, width: 1024, height: 559 },
+  // 依頼者が画像生成AIで作った表情違いの画像を、位置合わせ(align.ts)して重ねる範囲だけ切り出したもの。
+  // 「え」の画像はないため、口を開けて歯が見える「あ」の画像で代わりにする
+  expressions: {
+    mouth: {
+      a: { src: "/avatars/sato/mouth-a.jpg", rect: SATO_MOUTH_RECT },
+      i: { src: "/avatars/sato/mouth-i.jpg", rect: SATO_MOUTH_RECT },
+      u: { src: "/avatars/sato/mouth-u.jpg", rect: SATO_MOUTH_RECT },
+      e: { src: "/avatars/sato/mouth-a.jpg", rect: SATO_MOUTH_RECT },
+      o: { src: "/avatars/sato/mouth-o.jpg", rect: SATO_MOUTH_RECT },
+    },
+    blink: { src: "/avatars/sato/blink.jpg", rect: { x: 460, y: 153, width: 115, height: 28 } },
+  },
 };
 
 /** 試作版の仮の顔(public/avatars/placeholder/) */

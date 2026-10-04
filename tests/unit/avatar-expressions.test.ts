@@ -6,6 +6,7 @@ import {
   avatarManifestSchema,
   expressionRegions,
   PLACEHOLDER_AVATAR,
+  STANDARD_AVATAR,
   type Rect,
 } from "@/features/avatar/manifest";
 import { MouthImageMixer } from "@/features/avatar/mouth-images";
@@ -124,6 +125,14 @@ describe("expressionRegions / alignmentAreas", () => {
     const eyeAreas = alignmentAreas(PLACEHOLDER_AVATAR, "eyes");
     expect(eyeAreas).toHaveLength(2);
     for (const area of eyeAreas) expect(area.y > 439 + 15 || area.y + area.height < 439 - 15).toBe(true);
+  });
+
+  it("標準の面接官の表情の画像は、いまの顔の位置から求めた範囲に切り出してある", () => {
+    // 目・口などの位置を変えたら、表情の画像も切り出し直す必要がある
+    const { mouth, eyes } = expressionRegions(STANDARD_AVATAR);
+    const images = STANDARD_AVATAR.expressions!;
+    for (const key of ["a", "i", "u", "e", "o"] as const) expect(images.mouth?.[key]?.rect).toEqual(mouth.rect);
+    expect(images.blink?.rect).toEqual(eyes.rect);
   });
 
   it("表情の画像を持つ設定を読み込める", () => {

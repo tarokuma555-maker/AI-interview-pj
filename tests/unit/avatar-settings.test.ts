@@ -31,8 +31,10 @@ describe("parseAvatarSettings", () => {
     expect(Object.keys(settings.builtinExpressions)).toEqual(["sato"]);
     const avatar = resolveAvatar(settings)!;
     expect(avatar.src).toBe(STANDARD_AVATAR.src);
+    // 追加した画像はその表情だけを差し替え、ほかの表情は用意してある画像を使う
     expect(avatar.expressions?.mouth?.a).toEqual(patch);
-    expect(avatar.expressions?.blink).toBeUndefined();
+    expect(avatar.expressions?.mouth?.i).toEqual(STANDARD_AVATAR.expressions?.mouth?.i);
+    expect(avatar.expressions?.blink).toEqual(STANDARD_AVATAR.expressions?.blink);
   });
 
   it("「表示しない」なら null", () => {
