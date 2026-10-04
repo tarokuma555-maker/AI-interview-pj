@@ -433,10 +433,9 @@ class WebGlSurface implements AvatarSurface {
     const u = this.uniforms;
     const unit = this.rig.unit;
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    // 表情の画像がある動きは画像を重ねて表し、元画像の変形は止める
-    const mouthImages = this.mouthImageKeys.length > 0;
-    gl.uniform1f(u.uOpen, mouthImages ? 0 : pose.mouthOpen);
-    gl.uniform1f(u.uWide, mouthImages ? 0 : pose.mouthWide);
+    // 表情の画像がある場合も、元画像の口を pose の値だけ開き、その上に画像を重ねる(重ね合わせの途中を自然に見せる)
+    gl.uniform1f(u.uOpen, pose.mouthOpen);
+    gl.uniform1f(u.uWide, pose.mouthWide);
     const usable = pose.mouthImages.filter((w) => this.resources!.mouth.has(w.key));
     this.bindMouth(0, usable[0]);
     this.bindMouth(1, usable[1]);

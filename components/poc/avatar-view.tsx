@@ -60,6 +60,12 @@ export function AvatarView({ manifest, getInputs }: { manifest: AvatarManifest; 
       const mouth = lipSync.update(inputs.voice, now, dt);
       const pose = behavior.update(now, { mode: inputs.mode, mouth, candidateVoice: inputs.candidateVoice });
       pose.mouthImages = mixer.update(mouth, dt);
+      if (mixer.enabled) {
+        // 口の形の画像があるときは、元画像の口を、重ねている画像に合わせて控えめに開く
+        const shape = mixer.blendShape();
+        pose.mouthOpen = shape.open * 0.7;
+        pose.mouthWide = shape.wide;
+      }
       surface?.render(reducedMotion.matches ? reducePose(pose, 0.3) : pose);
     };
 

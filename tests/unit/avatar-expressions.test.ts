@@ -186,6 +186,32 @@ describe("MouthImageMixer", () => {
     expect(during.reduce((s, w) => s + w.weight, 0)).toBeLessThanOrEqual(1.0001);
   });
 
+  it("口の形を切り替えた直後は、すぐには次の形に切り替えない", () => {
+    const mixer = new MouthImageMixer(["a", "i", "o"]);
+    settle(mixer, { open: 0.9, wide: 0.1, vowel: "a" });
+    mixer.update({ open: 0.3, wide: 0.75, vowel: "i" }, 16); // 「い」に切り替わる
+    const held = mixer.update({ open: 0.65, wide: -0.55, vowel: "o" }, 16); // 直後の「お」はまだ使わない
+    expect(held.some((w) => w.key === "o")).toBe(false);
+    for (let t = 0; t < 200; t += 16) mixer.update({ open: 0.65, wide: -0.55, vowel: "o" }, 16);
+    expect(mixer.update({ open: 0.65, wide: -0.55, vowel: "o" }, 16)[0].key).toBe("o");
+  });
+
+  it("重ね始めはゆっくり立ち上がる(1フレームで急に濃くならない)", () => {
+    const mixer = new MouthImageMixer(["a"]);
+    const first = mixer.update({ open: 0.9, wide: 0.1, vowel: "a" }, 16)[0]?.weight ?? 0;
+    expect(first).toBeLessThan(0.1);
+    expect(settle(mixer, { open: 0.9, wide: 0.1, vowel: "a" })[0].weight).toBeGreaterThan(0.95);
+  });
+
+  it("元画像の口は、重ねている画像に合わせて開く", () => {
+    const mixer = new MouthImageMixer(["a", "o"]);
+    expect(mixer.blendShape()).toEqual({ open: 0, wide: 0 });
+    settle(mixer, { open: 0.65, wide: -0.55, vowel: "o" });
+    const shape = mixer.blendShape();
+    expect(shape.open).toBeCloseTo(0.65, 1);
+    expect(shape.wide).toBeCloseTo(-0.55, 1);
+  });
+
   it("画像がなければ使わない", () => {
     const mixer = new MouthImageMixer([]);
     expect(mixer.enabled).toBe(false);
