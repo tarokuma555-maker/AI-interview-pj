@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
+import type { AvatarManifest } from "@/features/avatar/manifest";
 import type { InterviewController, RoomStatus } from "@/features/interview/client/interview-controller";
+import { AvatarView } from "./avatar-view";
 import { LatencyPanel } from "./latency-panel";
 
 const STATUS_LABELS: Record<RoomStatus, string> = {
@@ -24,7 +26,16 @@ const PHASE_LABELS = {
   ended: "終了",
 } as const;
 
-export function RoomView({ controller, onReset }: { controller: InterviewController; onReset: () => void }) {
+export function RoomView({
+  controller,
+  avatar,
+  onReset,
+}: {
+  controller: InterviewController;
+  /** 表示しない場合は null */
+  avatar: AvatarManifest | null;
+  onReset: () => void;
+}) {
   const snap = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
   const [captions, setCaptions] = useState(true);
   const [text, setText] = useState("");
@@ -50,14 +61,24 @@ export function RoomView({ controller, onReset }: { controller: InterviewControl
         </div>
 
         <div className="flex flex-col items-center gap-3 py-4">
-          <div
-            className={`flex h-24 w-24 items-center justify-center rounded-full border-4 text-lg font-bold ${
-              snap.status === "speaking" ? "border-accent" : "border-border"
-            }`}
-            aria-hidden
-          >
-            面接官
-          </div>
+          {avatar ? (
+            <div
+              className={`w-full max-w-64 overflow-hidden rounded-2xl border-4 transition-colors sm:max-w-80 ${
+                snap.status === "speaking" ? "border-accent" : "border-border"
+              }`}
+            >
+              <AvatarView manifest={avatar} getInputs={controller.avatarInputs} />
+            </div>
+          ) : (
+            <div
+              className={`flex h-24 w-24 items-center justify-center rounded-full border-4 text-lg font-bold ${
+                snap.status === "speaking" ? "border-accent" : "border-border"
+              }`}
+              aria-hidden
+            >
+              面接官
+            </div>
+          )}
           <p className="text-lg font-semibold" role="status" aria-live="polite">
             {STATUS_LABELS[snap.status]}
           </p>

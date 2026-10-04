@@ -4,11 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { InterviewController, type ControllerConfig } from "@/features/interview/client/interview-controller";
 import { ApiError, fetchConfig, type PocConfig } from "@/features/interview/client/poc-api";
 import { isWebSpeechSupported } from "@/features/interview/client/stt/web-speech";
+import { AvatarPicker, DEFAULT_AVATAR_SETTINGS, parseAvatarSettings, resolveAvatar, type AvatarSettings } from "./avatar-picker";
 import { DEFAULT_CONTEXT, SetupForm, type SetupValues } from "./setup-form";
 import { RoomView } from "./room-view";
 
 const CODE_KEY = "poc-access-code";
 const FORM_KEY = "poc-setup";
+const AVATAR_KEY = "poc-avatar";
 
 function load<T>(key: string): T | null {
   try {
@@ -19,11 +21,13 @@ function load<T>(key: string): T | null {
   }
 }
 
-function save(key: string, value: unknown) {
+function save(key: string, value: unknown): boolean {
   try {
     localStorage.setItem(key, JSON.stringify(value));
+    return true;
   } catch {
     // 保存できなくても動作は続ける
+    return false;
   }
 }
 
@@ -35,6 +39,8 @@ export function PocApp() {
   const [checking, setChecking] = useState(false);
   const [initial, setInitial] = useState<SetupValues | null>(null);
   const [controller, setController] = useState<InterviewController | null>(null);
+  const [avatar, setAvatar] = useState<AvatarSettings>(DEFAULT_AVATAR_SETTINGS);
+  const [avatarSaveFailed, setAvatarSaveFailed] = useState(false);
 
   useEffect(() => {
     // 保存済みのアクセスコードは、表示後に入力欄へ入れる(サーバーでの描画と揃えるため)
@@ -55,6 +61,7 @@ export function PocApp() {
       setCode(entered);
       setConfig(result);
       setInitial(defaultValues(result, load<SetupValues>(FORM_KEY)));
+      setAvatar(parseAvatarSettings(load<unknown>(AVATAR_KEY)));
     } catch (error) {
       setCodeError(error instanceof ApiError ? error.message : "接続できませんでした");
     } finally {
@@ -69,6 +76,11 @@ export function PocApp() {
     const controllerConfig: ControllerConfig = { accessCode: code, ...values };
     setController(next);
     void next.prepare(controllerConfig);
+  }
+
+  function changeAvatar(next: AvatarSettings) {
+    setAvatar(next);
+    setAvatarSaveFailed(!save(AVATAR_KEY, next));
   }
 
   function reset() {
@@ -108,9 +120,13 @@ export function PocApp() {
         </form>
       )}
 
-      {config && initial && !controller && <SetupForm config={config} initial={initial} onSubmit={begin} />}
+      {config && initial && !controller && (
+        <SetupForm config={config} initial={initial} onSubmit={begin}>
+          <AvatarPicker value={avatar} onChange={changeAvatar} saveFailed={avatarSaveFailed} />
+        </SetupForm>
+      )}
 
-      {config && controller && <RoomView controller={controller} onReset={reset} />}
+      {config && controller && <RoomView controller={controller} avatar={resolveAvatar(avatar)} onReset={reset} />}
     </main>
   );
 }

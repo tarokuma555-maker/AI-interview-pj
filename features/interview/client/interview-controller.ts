@@ -1,3 +1,4 @@
+import type { AvatarInputs, AvatarMode } from "@/features/avatar/behavior";
 import type { QuestionPlan } from "@/lib/ai/schemas/plan";
 import {
   INITIAL_SESSION_STATE,
@@ -145,6 +146,18 @@ const INITIAL_SNAPSHOT: Snapshot = {
   textMode: false,
 };
 
+const AVATAR_MODES: Record<RoomStatus, AvatarMode> = {
+  idle: "idle",
+  preparing: "idle",
+  ready: "idle",
+  speaking: "speaking",
+  listening: "listening",
+  answering: "listening",
+  waiting: "thinking",
+  finished: "idle",
+  error: "idle",
+};
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function errorMessage(error: unknown): string {
@@ -186,6 +199,16 @@ export class InterviewController {
   };
 
   getSnapshot = () => this.snapshot;
+
+  /** アバターの動きに使う状態(画面の描画のたびに呼ばれる) */
+  avatarInputs = (): AvatarInputs => {
+    const mode = AVATAR_MODES[this.snapshot.status];
+    return {
+      mode,
+      voice: this.speaker?.voiceState ?? { kind: "none" },
+      candidateVoice: mode === "listening" && this.vad.isSpeaking,
+    };
+  };
 
   private update(patch: Partial<Snapshot>) {
     this.snapshot = { ...this.snapshot, ...patch };

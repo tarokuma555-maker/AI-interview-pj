@@ -37,10 +37,13 @@ export function SetupForm({
   config,
   initial,
   onSubmit,
+  children,
 }: {
   config: PocConfig;
   initial: SetupValues;
   onSubmit: (values: SetupValues) => void;
+  /** 送信ボタンの前に表示する追加の設定 */
+  children?: React.ReactNode;
 }) {
   const [values, setValues] = useState<SetupValues>(initial);
   const webSpeech = isWebSpeechSupported();
@@ -157,6 +160,8 @@ export function SetupForm({
           <textarea className={`${inputClass} min-h-16`} value={values.context.reasonForChange} maxLength={5000} onChange={(e) => setContext({ reasonForChange: e.target.value })} />
         </Field>
       </section>
+
+      {children}
 
       <button type="submit" className="self-start rounded-lg bg-accent px-5 py-3 font-semibold text-accent-foreground hover:opacity-90">
         準備する(マイクの許可と質問の準備)
