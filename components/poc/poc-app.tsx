@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { InterviewController, type ControllerConfig } from "@/features/interview/client/interview-controller";
-import { ApiError, fetchConfig, type PocConfig } from "@/features/interview/client/poc-api";
+import { ApiError, fetchConfig, fetchGoogleVoices, type PocConfig } from "@/features/interview/client/poc-api";
+import { previewVoice, stopPreview } from "@/features/interview/client/voice-preview";
 import { isWebSpeechSupported } from "@/features/interview/client/stt/web-speech";
 import { VOICES, type VoiceGender } from "@/lib/speech/voices";
 import { DEFAULT_AVATAR_SETTINGS, parseAvatarSettings, resolveAvatar, type AvatarSettings } from "@/features/avatar/settings";
 import { AvatarPicker } from "./avatar-picker";
-import { DEFAULT_CONTEXT, SetupForm, type SetupValues } from "./setup-form";
+import { DEFAULT_CONTEXT, SetupForm, type SetupValues, type VoiceTools } from "./setup-form";
 import { RoomView } from "./room-view";
 
 const CODE_KEY = "poc-access-code";
@@ -72,7 +73,25 @@ export function PocApp() {
     }
   }
 
+  const interviewer = resolveAvatar(avatar)?.interviewer;
+  const voiceTools = useMemo<VoiceTools>(
+    () => ({
+      loadGoogleVoices: () => fetchGoogleVoices(code),
+      preview: (values) =>
+        previewVoice({
+          accessCode: code,
+          provider: values.ttsProvider,
+          voice: { id: values.settings.voiceId, pitch: values.settings.voicePitch, rate: values.settings.voiceRate },
+          gender: interviewer?.voice,
+          text: greeting(interviewer?.name),
+        }),
+      gender: interviewer?.voice,
+    }),
+    [code, interviewer?.voice, interviewer?.name],
+  );
+
   function begin(values: SetupValues) {
+    stopPreview();
     save(FORM_KEY, values);
     controller?.dispose();
     const next = new InterviewController();
@@ -131,7 +150,7 @@ export function PocApp() {
       )}
 
       {config && initial && !controller && (
-        <SetupForm config={config} initial={initial} onSubmit={begin}>
+        <SetupForm config={config} initial={initial} onSubmit={begin} voiceTools={voiceTools}>
           <AvatarPicker value={avatar} onChange={changeAvatar} saveFailed={avatarSaveFailed} />
         </SetupForm>
       )}
@@ -141,9 +160,15 @@ export function PocApp() {
   );
 }
 
+/** 「声を試す」で読み上げる、面接官の最初のあいさつ */
+function greeting(name: string | undefined): string {
+  const surname = name?.trim().split(/\s+/)[0];
+  return `本日はお時間をいただきありがとうございます。面接を担当いたします${surname || "人事の者"}です。よろしくお願いいたします。`;
+}
+
 function defaultValues(config: PocConfig, saved: SetupValues | null, voiceGender?: VoiceGender): SetupValues {
   const sttDefault = isWebSpeechSupported() ? "webspeech" : "text";
-  const ttsDefault = config.azureSpeech ? "azure" : config.aiMode === "mock" ? "mock" : "browser";
+  const ttsDefault = config.googleTts ? "google" : config.azureSpeech ? "azure" : config.aiMode === "mock" ? "mock" : "browser";
   const base: SetupValues = {
     settings: {
       stage: "first",
@@ -165,6 +190,9 @@ function defaultValues(config: PocConfig, saved: SetupValues | null, voiceGender
     settings: { ...base.settings, ...saved.settings },
     context: { ...base.context, ...saved.context },
     sttProvider: saved.sttProvider === "azure" && !config.azureSpeech ? base.sttProvider : saved.sttProvider,
-    ttsProvider: saved.ttsProvider === "azure" && !config.azureSpeech ? base.ttsProvider : saved.ttsProvider,
+    ttsProvider:
+      (saved.ttsProvider === "azure" && !config.azureSpeech) || (saved.ttsProvider === "google" && !config.googleTts)
+        ? base.ttsProvider
+        : saved.ttsProvider,
   };
 }

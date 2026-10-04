@@ -11,7 +11,7 @@ export type MouthShape = { open: number; wide: number; vowel?: "a" | "i" | "u" |
 export type VoiceState =
   | { kind: "none" }
   | { kind: "audio"; analyser: AnalyserNode }
-  | { kind: "speech"; text: string; startedAt: number };
+  | { kind: "speech"; text: string; startedAt: number; /** 読み上げの速さ(倍率) */ rate?: number };
 
 export const CLOSED_MOUTH: MouthShape = { open: 0, wide: 0 };
 
@@ -179,7 +179,7 @@ export class LipSync {
     }
     if (voice.kind === "speech") {
       if (this.morae?.text !== voice.text) this.morae = { text: voice.text, list: textToMorae(voice.text) };
-      return mouthAt(this.morae.list, now - voice.startedAt);
+      return mouthAt(this.morae.list, (now - voice.startedAt) * (voice.rate ?? 1));
     }
     return CLOSED_MOUTH;
   }

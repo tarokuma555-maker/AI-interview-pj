@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ControllerConfig } from "@/features/interview/client/interview-controller";
 import type { PocConfig } from "@/features/interview/client/poc-api";
 import { isWebSpeechSupported } from "@/features/interview/client/stt/web-speech";
@@ -12,14 +12,27 @@ import {
   STYLE_LABELS,
   type CandidateContext,
 } from "@/lib/interview/types";
+import { defaultGoogleVoice, type GoogleVoice } from "@/lib/speech/google-voices";
 import {
   STT_PROVIDERS,
   STT_PROVIDER_LABELS,
   TTS_PROVIDERS,
   TTS_PROVIDER_LABELS,
+  VOICE_PITCH_RANGE,
+  VOICE_RATE_RANGE,
+  VOICES,
+  type VoiceGender,
 } from "@/lib/speech/voices";
 
 export type SetupValues = Omit<ControllerConfig, "accessCode">;
+
+/** 声の一覧の取得と試聴(アクセスコードを持つ親が用意する) */
+export type VoiceTools = {
+  loadGoogleVoices: () => Promise<GoogleVoice[]>;
+  preview: (values: SetupValues) => Promise<void>;
+  /** アバターの声の性別(最初に選ぶ声に使う) */
+  gender?: VoiceGender;
+};
 
 export const DEFAULT_CONTEXT: CandidateContext = {
   companyName: "株式会社サンプル",
@@ -37,16 +50,73 @@ export function SetupForm({
   config,
   initial,
   onSubmit,
+  voiceTools,
   children,
 }: {
   config: PocConfig;
   initial: SetupValues;
   onSubmit: (values: SetupValues) => void;
+  voiceTools: VoiceTools;
   /** 送信ボタンの前に表示する追加の設定 */
   children?: React.ReactNode;
 }) {
   const [values, setValues] = useState<SetupValues>(initial);
+  const [googleVoices, setGoogleVoices] = useState<GoogleVoice[] | null>(null);
+  const [voicesError, setVoicesError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
   const webSpeech = isWebSpeechSupported();
+  const provider = values.ttsProvider;
+  const gender = voiceTools.gender ?? "male";
+
+  // Google の声の一覧は、Google を選んだときに1回だけ取得する。いまの声が一覧にない場合は、アバターの性別に合う声を選ぶ
+  useEffect(() => {
+    if (provider !== "google" || googleVoices) return;
+    let cancelled = false;
+    voiceTools
+      .loadGoogleVoices()
+      .then((list) => {
+        if (cancelled) return;
+        setGoogleVoices(list);
+        setVoicesError(null);
+        const fallback = defaultGoogleVoice(list, gender);
+        setValues((v) =>
+          list.some((voice) => voice.id === v.settings.voiceId) || !fallback ? v : { ...v, settings: { ...v.settings, voiceId: fallback.id } },
+        );
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setVoicesError(error instanceof Error ? error.message : "声の一覧を取得できませんでした");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [provider, googleVoices, voiceTools, gender]);
+
+  function changeTtsProvider(next: SetupValues["ttsProvider"]) {
+    setValues((v) => {
+      let voiceId = v.settings.voiceId;
+      if (next === "azure" && !config.voices.some((voice) => voice.id === voiceId)) {
+        voiceId = VOICES.find((voice) => voice.gender === gender)?.id ?? config.voices[0]?.id ?? voiceId;
+      }
+      if (next === "google" && googleVoices && !googleVoices.some((voice) => voice.id === voiceId)) {
+        voiceId = defaultGoogleVoice(googleVoices, gender)?.id ?? voiceId;
+      }
+      return { ...v, ttsProvider: next, settings: { ...v.settings, voiceId } };
+    });
+  }
+
+  async function runPreview() {
+    setPreview({ busy: true, error: null });
+    try {
+      await voiceTools.preview(values);
+      setPreview({ busy: false, error: null });
+    } catch (error) {
+      setPreview({ busy: false, error: error instanceof Error ? error.message : "声を再生できませんでした" });
+    }
+  }
+
+  const voiceOptions = provider === "google" ? (googleVoices ?? []) : provider === "azure" ? config.voices : [];
+  const pitch = values.settings.voicePitch ?? 0;
+  const rate = values.settings.voiceRate ?? 1;
 
   const setSettings = (patch: Partial<SetupValues["settings"]>) =>
     setValues((v) => ({ ...v, settings: { ...v.settings, ...patch } }));
@@ -55,7 +125,8 @@ export function SetupForm({
 
   const sttAvailable = (p: (typeof STT_PROVIDERS)[number]) =>
     p === "azure" ? config.azureSpeech : p === "webspeech" ? webSpeech : true;
-  const ttsAvailable = (p: (typeof TTS_PROVIDERS)[number]) => (p === "azure" ? config.azureSpeech : true);
+  const ttsAvailable = (p: (typeof TTS_PROVIDERS)[number]) =>
+    p === "azure" ? config.azureSpeech : p === "google" ? config.googleTts : true;
 
   return (
     <form
@@ -118,7 +189,7 @@ export function SetupForm({
             </select>
           </Field>
           <Field label="音声合成">
-            <select className={inputClass} value={values.ttsProvider} onChange={(e) => setValues((v) => ({ ...v, ttsProvider: e.target.value as SetupValues["ttsProvider"] }))}>
+            <select className={inputClass} value={values.ttsProvider} onChange={(e) => changeTtsProvider(e.target.value as SetupValues["ttsProvider"])}>
               {TTS_PROVIDERS.map((p) => (
                 <option key={p} value={p} disabled={!ttsAvailable(p)}>
                   {TTS_PROVIDER_LABELS[p]}{ttsAvailable(p) ? "" : "(使用不可)"}
@@ -127,8 +198,18 @@ export function SetupForm({
             </select>
           </Field>
           <Field label="面接官の声">
-            <select className={inputClass} value={values.settings.voiceId} disabled={values.ttsProvider !== "azure"} onChange={(e) => setSettings({ voiceId: e.target.value })}>
-              {config.voices.map((v) => (
+            <select
+              className={inputClass}
+              value={voiceOptions.some((v) => v.id === values.settings.voiceId) ? values.settings.voiceId : ""}
+              disabled={voiceOptions.length === 0}
+              onChange={(e) => setSettings({ voiceId: e.target.value })}
+            >
+              {voiceOptions.length === 0 && (
+                <option value="">
+                  {provider === "google" && !voicesError ? "読み込み中…" : provider === "browser" ? "端末の声から自動で選びます" : "選べません"}
+                </option>
+              )}
+              {voiceOptions.map((v) => (
                 <option key={v.id} value={v.id}>{v.label}</option>
               ))}
             </select>
@@ -137,7 +218,46 @@ export function SetupForm({
             <input type="checkbox" checked={values.earphones} onChange={(e) => setValues((v) => ({ ...v, earphones: e.target.checked }))} />
             <span>イヤホンを使用中(面接官の発話中に話すと割り込めます)</span>
           </label>
+          <Field label={`声の高さ:${pitch > 0 ? "+" : ""}${pitch}(低く ← → 高く)`}>
+            <input
+              type="range"
+              min={VOICE_PITCH_RANGE.min}
+              max={VOICE_PITCH_RANGE.max}
+              step={VOICE_PITCH_RANGE.step}
+              value={pitch}
+              disabled={provider === "mock"}
+              onChange={(e) => setSettings({ voicePitch: Number(e.target.value) || undefined })}
+            />
+          </Field>
+          <Field label={`話す速さ:${rate.toFixed(2)}倍(ゆっくり ← → 速く)`}>
+            <input
+              type="range"
+              min={VOICE_RATE_RANGE.min}
+              max={VOICE_RATE_RANGE.max}
+              step={VOICE_RATE_RANGE.step}
+              value={rate}
+              disabled={provider === "mock"}
+              onChange={(e) => setSettings({ voiceRate: Number(e.target.value) === 1 ? undefined : Number(e.target.value) })}
+            />
+          </Field>
         </div>
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <button
+            type="button"
+            onClick={() => void runPreview()}
+            disabled={preview.busy || (provider === "google" && !googleVoices)}
+            className="rounded-lg border border-border px-3 py-2 disabled:opacity-50"
+          >
+            {preview.busy ? "準備しています…" : "声を試す"}
+          </button>
+          {preview.error && <span className="text-danger">{preview.error}</span>}
+          {voicesError && <span className="text-danger">{voicesError}</span>}
+        </div>
+        {provider === "google" && (
+          <p className="text-sm text-muted">
+            Chirp 3 HD は最も自然な声(本番の想定で月 約2.3万円)、WaveNet は低価格の声(同 約1,200円)です。試作版は毎月の無料枠の範囲で使えます。声によっては高さ・速さの調整が効かないものがあります(その場合は調整なしで読み上げます)。
+          </p>
+        )}
       </section>
 
       <section className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-5">

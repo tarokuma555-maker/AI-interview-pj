@@ -3,7 +3,7 @@ import type { InterviewerModel } from "@/lib/ai/interviewer";
 import { buildMessages } from "@/lib/ai/messages";
 import { FORCED_CLOSING_TEXT, REFUSAL_FALLBACK_TEXT } from "@/lib/ai/prompts/interviewer";
 import { SentenceSplitter, type SplitResult } from "@/lib/ai/sentence-splitter";
-import type { TtsClient } from "@/lib/speech/tts/types";
+import type { TtsClient, VoiceRequest } from "@/lib/speech/tts/types";
 import { checkTime, interruptionNotice, remainingSeconds } from "./phase";
 import { charsPerMinute } from "./speech-metrics";
 import type {
@@ -120,7 +120,8 @@ async function produce(input: TurnInput, deps: TurnDeps, emit: (event: TurnEvent
   let content: BetaContentBlockParam[] | null = null;
 
   if (input.reply) {
-    const pipeline = new OrderedTtsPipeline(deps.tts, input.settings.voiceId, deps.signal, emit, () => {
+    const voice = { id: input.settings.voiceId, pitch: input.settings.voicePitch, rate: input.settings.voiceRate };
+    const pipeline = new OrderedTtsPipeline(deps.tts, voice, deps.signal, emit, () => {
       latency.firstAudioAt ??= now();
     });
     const splitter = new SentenceSplitter();
@@ -223,7 +224,7 @@ class OrderedTtsPipeline {
 
   constructor(
     private readonly tts: TtsClient | null,
-    private readonly voiceId: string,
+    private readonly voice: VoiceRequest,
     private readonly signal: AbortSignal,
     private readonly emit: (event: TurnEvent) => void,
     private readonly onAudio: () => void,
@@ -232,7 +233,7 @@ class OrderedTtsPipeline {
   add(index: number, text: string) {
     const tts = this.tts;
     if (!tts) return;
-    const result = this.limited(() => tts.synthesize(text, this.voiceId, this.signal)).then(
+    const result = this.limited(() => tts.synthesize(text, this.voice, this.signal)).then(
       (audio) => ({ ok: true as const, audio }),
       (error: unknown) => ({ ok: false as const, error }),
     );

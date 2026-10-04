@@ -44,10 +44,20 @@ export const STT_PROVIDER_LABELS: Record<SttProvider, string> = {
   text: "テキスト入力(マイクなし)",
 };
 
-export const TTS_PROVIDERS = ["browser", "azure", "mock"] as const;
+export const TTS_PROVIDERS = ["browser", "google", "azure", "mock"] as const;
 export type TtsProvider = (typeof TTS_PROVIDERS)[number];
 export const TTS_PROVIDER_LABELS: Record<TtsProvider, string> = {
   browser: "ブラウザ標準(speechSynthesis)",
+  google: "Google Cloud(Text-to-Speech)",
   azure: "Azure AI Speech",
   mock: "テスト音(発話時間ぶんの信号音)",
 };
+
+/** 声の高さ(半音)と話す速さ(倍率)の調整範囲 */
+export const VOICE_PITCH_RANGE = { min: -6, max: 6, step: 1 } as const;
+export const VOICE_RATE_RANGE = { min: 0.8, max: 1.2, step: 0.05 } as const;
+
+/** ブラウザ標準の読み上げの高さ(0〜2、1が標準)に、半音の調整を近づけて当てはめる */
+export function browserPitch(semitones: number | undefined): number {
+  return Math.min(2, Math.max(0.5, 2 ** ((semitones ?? 0) / 12)));
+}

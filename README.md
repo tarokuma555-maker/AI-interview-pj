@@ -27,6 +27,7 @@ npm run dev                  # http://localhost:3000/poc を開く
 | `ANTHROPIC_API_KEY` | △ | Claude API キー。`AI_PROVIDER=mock` のときは不要。Anthropic Console でワークスペースを選んで作成したキーを使う |
 | `ANTHROPIC_WORKSPACE_ID` | | ワークスペースに属していないAPIキーを使う場合だけ、使うワークスペースのID(`wrkspc_...`)を入れる |
 | `AI_PROVIDER` | | `mock` にすると Claude API を呼ばず、固定の文面で動く(APIキーなしで画面と音声の流れを確認できる) |
+| `GOOGLE_TTS_API_KEY` | | Google Cloud Text-to-Speech の API キー(Text-to-Speech API だけに制限して作る)。設定すると音声合成で Google の声を選べる |
 | `AZURE_SPEECH_KEY` / `AZURE_SPEECH_REGION` | | Azure AI Speech(音声認識・音声合成)。未設定でもブラウザ標準の音声認識・読み上げで試せる |
 
 ## 試作版の使い方
@@ -45,7 +46,7 @@ npm run dev                  # http://localhost:3000/poc を開く
 | 音声認識 | ブラウザ標準(Web Speech API) | Chrome・Edge・Safari で使える(Firefox は非対応)。音声はブラウザの提供元のサーバーで処理されるため、比較の基準として使い、本番では採用しない |
 | | Azure AI Speech | サーバーが発行する一時トークンで、ブラウザから直接接続する |
 | | テキスト入力 | マイクを使わずに流れを確認する |
-| 音声合成 | ブラウザ標準 / Azure AI Speech / テスト音 | テスト音は発話時間ぶんの信号音(音声サービスなしで確認する用) |
+| 音声合成 | ブラウザ標準 / Google Cloud / Azure AI Speech / テスト音 | Google は日本語の声の一覧から選べる(Chirp 3 HD が最も自然、WaveNet が低価格)。「声の高さ」「話す速さ」で調整し、「声を試す」で確認できる。テスト音は発話時間ぶんの信号音(音声サービスなしで確認する用) |
 
 面接官のアバター:
 

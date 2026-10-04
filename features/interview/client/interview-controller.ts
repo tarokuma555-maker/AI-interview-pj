@@ -237,7 +237,7 @@ export class InterviewController {
       this.speaker = new Speaker(
         this.context,
         { onStart: (index) => this.onSpeakerStart(index), onIdle: () => this.onSpeakerIdle() },
-        config.voiceGender,
+        { gender: config.voiceGender, pitch: config.settings.voicePitch, rate: config.settings.voiceRate },
       );
       if (this.usesVoice) {
         this.capture = new AudioCapture(this.context);
@@ -270,11 +270,12 @@ export class InterviewController {
 
   private async loadPhrases() {
     const provider = this.config?.ttsProvider;
-    if (provider !== "azure" && provider !== "mock") return;
+    if (!provider || provider === "browser") return;
     const { accessCode, settings } = this.config!;
+    const voice = { id: settings.voiceId, pitch: settings.voicePitch, rate: settings.voiceRate };
     await Promise.all(
       (Object.keys(PHRASES) as PhraseKey[]).map(async (key) => {
-        this.phrases.set(key, await fetchPhraseAudio(accessCode, PHRASES[key], settings.voiceId, provider));
+        this.phrases.set(key, await fetchPhraseAudio(accessCode, PHRASES[key], voice, provider));
       }),
     );
   }

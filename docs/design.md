@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |---|---|
-| 文書バージョン | v0.6(ドラフト) |
+| 文書バージョン | v0.7(ドラフト) |
 | 作成日 | 2026-10-04 |
 | 対応する要件定義書 | [要件定義書](requirements.md) v0.8 |
 | ステータス | たたき台。開発ステップ2(音声会話の試作)の結果を反映して確定する |
@@ -1173,11 +1173,22 @@ stateDiagram-v2
 
 候補は、日本語に対応した主要なクラウド音声サービス(Azure AI Speech、Google Cloud、ElevenLabs、OpenAI など)とし、上記の基準を満たすかを試作で確認する。選定結果は本書に追記する。
 
+**試作版で使える音声合成(2026-10-04 時点)**
+
+| サービス | 声 | 費用の目安(本番の想定:月2,000回 × 約3,000字) | 補足 |
+|---|---|---|---|
+| Google Cloud Text-to-Speech | 日本語の Chirp 3 HD(最も自然)・Neural2・WaveNet の男性・女性の声。一覧は API から取得する | Chirp 3 HD:月 約2.3万円(毎月100万字まで無料)。WaveNet:月 約1,200円(毎月400万字まで無料) | 依頼者の Google アカウントで設定(API キーは Text-to-Speech API だけに制限)。標準の面接官(男性)には男性の Chirp 3 HD の声を最初に選ぶ |
+| Azure AI Speech | 日本語の男性・女性の声 | 月 約3万円(毎月50万字まで無料。日本語は1字を2字と数える) | |
+| ブラウザ標準の読み上げ | 端末に入っている声(Edge の「Online (Natural)」の声などを優先) | 無料 | 端末によって声が変わる |
+
+声の高さ(半音で -6〜+6)と話す速さ(0.8〜1.2倍)は、設定画面で調整でき、どのサービスにも同じ値を当てはめる(Google は audioConfig、Azure は SSML の prosody、ブラウザは読み上げの pitch・rate)。Google の声のうち調整に対応していないものは、断られた調整を外して読み上げ、その声には次から送らない。設定画面の「声を試す」で、選んだ声と調整を面接官のあいさつで確認できる。
+
 サーバー側の音声合成も、インターフェースで差し替え可能にする。
 
 ```ts
 interface TtsClient {
-  synthesize(text: string, voiceId: string, signal?: AbortSignal): Promise<{ format: "mp3"; data: Uint8Array; characters: number }>;
+  // voice: 声の ID と、高さ(半音)・速さ(倍率)の調整
+  synthesize(text: string, voice: { id: string; pitch?: number; rate?: number }, signal?: AbortSignal): Promise<{ format: "mp3"; data: Uint8Array; characters: number }>;
 }
 interface SttTokenIssuer {
   issue(sessionId: string, keywords: string[]): Promise<SttToken>;
@@ -1295,7 +1306,7 @@ interface SttTokenIssuer {
 | 会話履歴・状態 | データベースを使わず、ブラウザが保持して毎回 `/api/poc/turns` に送る | データベース(`turns`、`interview_sessions`)から読み込む |
 | ターンエンジン | 本番と共通(`lib/interview/turn-engine.ts`) | 同左 |
 | 音声認識 | ブラウザ標準(Web Speech API)/ Azure AI Speech / テキスト入力 | 開発ステップ2の比較結果で決定 |
-| 音声合成 | ブラウザ標準(speechSynthesis)/ Azure AI Speech / テスト音 | 同上 |
+| 音声合成 | ブラウザ標準(speechSynthesis)/ Google Cloud / Azure AI Speech / テスト音。声の高さ・速さの調整と「声を試す」つき | 同上 |
 | 面接官のAIモデル | 画面で Sonnet 5.5 / Opus 5.5 を切り替えて比較 | 比較結果で決定 |
 | APIを使わない確認 | `AI_PROVIDER=mock` で固定の文面を返す | ― |
 | 結果の分析 | 応答時間の計測値と会話の記録を JSON で保存 | 管理画面(11) |
@@ -1325,3 +1336,4 @@ interface SttTokenIssuer {
 | v0.4 | 2026-10-04 | アバターに表情違いの画像(口の形「あ・い・う・え・お」、目を閉じた顔)を使う方式と、その位置合わせを追加(3.12) |
 | v0.5 | 2026-10-04 | 標準の面接官(写真風「佐藤 健一」)、横長の表示、面接官の名前と声をアバターに合わせる仕組みを追加。位置合わせの精度を改善(3.12) |
 | v0.6 | 2026-10-04 | 標準の面接官に、依頼者が作った表情違いの画像(い・う・え・お、目を閉じた顔)を追加(3.12) |
+| v0.7 | 2026-10-04 | 試作版の音声合成に Google Cloud Text-to-Speech を追加。声の高さ・速さの調整と試聴を追加(10、14.1) |

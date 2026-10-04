@@ -1,5 +1,7 @@
 import type { QuestionPlan } from "@/lib/ai/schemas/plan";
 import type { CandidateContext, SessionSettings, SessionState, TurnEvent, TurnRecord } from "@/lib/interview/types";
+import type { GoogleVoice } from "@/lib/speech/google-voices";
+import type { VoiceRequest } from "@/lib/speech/tts/types";
 import type { TtsProvider } from "@/lib/speech/voices";
 import { NdjsonParser } from "./ndjson";
 
@@ -18,6 +20,7 @@ export class ApiError extends Error {
 export type PocConfig = {
   aiMode: "live" | "mock";
   azureSpeech: boolean;
+  googleTts: boolean;
   interviewerModels: { key: SessionSettings["interviewerModel"]; label: string }[];
   voices: { id: string; label: string }[];
 };
@@ -53,10 +56,24 @@ export async function fetchSttToken(code: string): Promise<{ token: string; regi
   return (await response.json()) as { token: string; region: string; expiresAt: number };
 }
 
-export async function fetchPhraseAudio(code: string, text: string, voiceId: string, provider: "azure" | "mock"): Promise<ArrayBuffer> {
-  const response = await fetch("/api/poc/tts", { method: "POST", headers: headers(code), body: JSON.stringify({ text, voiceId, provider }) });
+/** サーバーで音声を合成するサービス */
+export type ServerTtsProvider = Exclude<TtsProvider, "browser">;
+
+export async function fetchPhraseAudio(code: string, text: string, voice: VoiceRequest, provider: ServerTtsProvider): Promise<ArrayBuffer> {
+  const response = await fetch("/api/poc/tts", {
+    method: "POST",
+    headers: headers(code),
+    body: JSON.stringify({ text, voiceId: voice.id, pitch: voice.pitch, rate: voice.rate, provider }),
+  });
   if (!response.ok) throw await toApiError(response);
   return response.arrayBuffer();
+}
+
+/** Google Cloud の音声合成で使える日本語の声 */
+export async function fetchGoogleVoices(code: string): Promise<GoogleVoice[]> {
+  const response = await fetch("/api/poc/voices", { headers: headers(code) });
+  if (!response.ok) throw await toApiError(response);
+  return ((await response.json()) as { voices: GoogleVoice[] }).voices;
 }
 
 export type TurnRequestBody = {

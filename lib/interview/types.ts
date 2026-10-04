@@ -30,6 +30,9 @@ export const sessionSettingsSchema = z.object({
   durationMin: z.union([z.literal(5), z.literal(15), z.literal(30)]),
   interviewerModel: z.enum(INTERVIEWER_MODEL_KEYS),
   voiceId: z.string().max(40),
+  /** 声の高さ(半音)と話す速さ(倍率)の調整 */
+  voicePitch: z.number().min(-6).max(6).optional(),
+  voiceRate: z.number().min(0.8).max(1.2).optional(),
   /** 面接官の名前(アバターの名札と合わせる。なければ面接官は所属だけを名乗る) */
   interviewerName: z.string().trim().max(40).optional(),
 });

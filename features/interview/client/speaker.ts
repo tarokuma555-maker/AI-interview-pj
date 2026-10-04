@@ -1,5 +1,8 @@
 import type { VoiceState } from "@/features/avatar/lip-sync";
-import { pickBrowserVoice, type VoiceGender } from "@/lib/speech/voices";
+import { browserPitch, pickBrowserVoice, type VoiceGender } from "@/lib/speech/voices";
+
+/** ブラウザ標準の読み上げの声の選び方と調整(アバターと設定画面の調整に合わせる) */
+export type BrowserVoiceOptions = { gender?: VoiceGender; pitch?: number; rate?: number };
 
 /**
  * 面接官の発言を順番に再生する(設計書 3.6)。
@@ -27,8 +30,7 @@ export class Speaker {
   constructor(
     private readonly context: AudioContext,
     private readonly events: SpeakerEvents,
-    /** ブラウザ標準の読み上げで優先する声の性別(アバターに合わせる) */
-    private readonly voiceGender?: VoiceGender,
+    private readonly browserVoice: BrowserVoiceOptions = {},
   ) {
     this.analyser = context.createAnalyser();
     this.analyser.fftSize = 1024;
@@ -129,11 +131,9 @@ export class Speaker {
     const started: { voice?: VoiceState } = {};
     await new Promise<void>((resolve) => {
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "ja-JP";
-      const japanese = pickBrowserVoice(speechSynthesis.getVoices(), this.voiceGender);
-      if (japanese) utterance.voice = japanese;
+      applyBrowserVoice(utterance, this.browserVoice);
       utterance.onstart = () => {
-        started.voice = { kind: "speech", text, startedAt: performance.now() };
+        started.voice = { kind: "speech", text, startedAt: performance.now(), rate: utterance.rate };
         this.voice = started.voice;
       };
       utterance.onend = () => resolve();
@@ -151,6 +151,15 @@ export class Speaker {
   private endVoice(voice: VoiceState) {
     if (this.voice === voice) this.voice = { kind: "none" };
   }
+}
+
+/** 読み上げに、日本語の声(アバターの性別に合うもの)と高さ・速さの調整を当てはめる */
+export function applyBrowserVoice(utterance: SpeechSynthesisUtterance, options: BrowserVoiceOptions) {
+  utterance.lang = "ja-JP";
+  const voice = pickBrowserVoice(speechSynthesis.getVoices(), options.gender);
+  if (voice) utterance.voice = voice;
+  utterance.pitch = browserPitch(options.pitch);
+  utterance.rate = options.rate ?? 1;
 }
 
 export function base64ToArrayBuffer(base64: string): ArrayBuffer {

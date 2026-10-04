@@ -6,7 +6,9 @@ import { getTtsClient } from "@/lib/speech/tts";
 const bodySchema = z.object({
   text: z.string().min(1).max(200),
   voiceId: z.string().max(40),
-  provider: z.enum(["azure", "mock"]),
+  provider: z.enum(["google", "azure", "mock"]),
+  pitch: z.number().min(-6).max(6).optional(),
+  rate: z.number().min(0.8).max(1.2).optional(),
 });
 
 export async function POST(request: Request) {
@@ -21,7 +23,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const audio = await getTtsClient(body.provider)!.synthesize(body.text, body.voiceId, request.signal);
+    const voice = { id: body.voiceId, pitch: body.pitch, rate: body.rate };
+    const audio = await getTtsClient(body.provider)!.synthesize(body.text, voice, request.signal);
     return new Response(Buffer.from(audio.data), {
       headers: { "Content-Type": audio.format === "mp3" ? "audio/mpeg" : "audio/wav", "Cache-Control": "no-store" },
     });
