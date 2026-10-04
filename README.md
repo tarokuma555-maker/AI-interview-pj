@@ -24,7 +24,8 @@ npm run dev                  # http://localhost:3000/poc を開く
 | 環境変数 | 必須 | 内容 |
 |---|---|---|
 | `POC_ACCESS_CODE` | ○ | 試作版のアクセスコード。画面で入力する。未設定だと試作版の API は使えない |
-| `ANTHROPIC_API_KEY` | △ | Claude API キー。`AI_PROVIDER=mock` のときは不要 |
+| `ANTHROPIC_API_KEY` | △ | Claude API キー。`AI_PROVIDER=mock` のときは不要。Anthropic Console でワークスペースを選んで作成したキーを使う |
+| `ANTHROPIC_WORKSPACE_ID` | | ワークスペースに属していないAPIキーを使う場合だけ、使うワークスペースのID(`wrkspc_...`)を入れる |
 | `AI_PROVIDER` | | `mock` にすると Claude API を呼ばず、固定の文面で動く(APIキーなしで画面と音声の流れを確認できる) |
 | `AZURE_SPEECH_KEY` / `AZURE_SPEECH_REGION` | | Azure AI Speech(音声認識・音声合成)。未設定でもブラウザ標準の音声認識・読み上げで試せる |
 
