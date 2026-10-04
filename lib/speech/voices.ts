@@ -13,14 +13,23 @@ export const VOICES: VoiceOption[] = [
 const MALE_VOICE = /otoya|ichiro|keita|daichi|naoki|hattori|male|男性/i;
 const FEMALE_VOICE = /kyoko|haruka|ayumi|sayaka|nanami|mayu|aoi|shiori|o-ren|google|female|女性/i;
 
+/** 自然に聞こえる高品質な声(Microsoft Edge の「Online (Natural)」、Apple の「拡張」「プレミアム」など) */
+const NATURAL_VOICE = /natural|online|neural|enhanced|premium|拡張|プレミアム/i;
+
 /**
- * ブラウザ標準の読み上げで使う日本語の声を選ぶ。アバターの性別に合う声があればそれを、なければ最初の日本語の声を使う。
+ * ブラウザ標準の読み上げで使う日本語の声を選ぶ。アバターの性別に合う声を優先し、その中でも高品質な声を優先する。
+ * 合う声がなければ、日本語の声のうち高品質なもの、それもなければ最初の日本語の声を使う。
  */
 export function pickBrowserVoice<T extends { name: string; lang: string }>(voices: T[], gender?: VoiceGender): T | undefined {
   const japanese = voices.filter((v) => v.lang.toLowerCase().startsWith("ja"));
-  if (gender === "male") return japanese.find((v) => MALE_VOICE.test(v.name) && !/female/i.test(v.name)) ?? japanese[0];
-  if (gender === "female") return japanese.find((v) => FEMALE_VOICE.test(v.name)) ?? japanese[0];
-  return japanese[0];
+  const best = (list: T[]) => list.find((v) => NATURAL_VOICE.test(v.name)) ?? list[0];
+  const matching =
+    gender === "male"
+      ? japanese.filter((v) => MALE_VOICE.test(v.name) && !/female/i.test(v.name))
+      : gender === "female"
+        ? japanese.filter((v) => FEMALE_VOICE.test(v.name))
+        : [];
+  return best(matching) ?? best(japanese);
 }
 
 export function findVoice(id: string): VoiceOption {

@@ -42,6 +42,17 @@ describe("pickBrowserVoice", () => {
     expect(pickBrowserVoice(voices, "female")?.name).toBe("Google 日本語");
   });
 
+  it("Edge などの高品質な声があれば、そちらを優先する", () => {
+    const edge = [
+      ...voices,
+      { name: "Microsoft Nanami Online (Natural) - Japanese (Japan)", lang: "ja-JP" },
+      { name: "Microsoft Keita Online (Natural) - Japanese (Japan)", lang: "ja-JP" },
+    ];
+    expect(pickBrowserVoice(edge, "male")?.name).toContain("Keita Online");
+    expect(pickBrowserVoice(edge, "female")?.name).toContain("Nanami Online");
+    expect(pickBrowserVoice(edge)?.name).toContain("Online (Natural)");
+  });
+
   it("合う声がなければ、最初の日本語の声を使う", () => {
     expect(pickBrowserVoice(voices.slice(0, 2), "male")?.name).toBe("Google 日本語");
     expect(pickBrowserVoice([{ name: "Samantha", lang: "en-US" }], "male")).toBeUndefined();
