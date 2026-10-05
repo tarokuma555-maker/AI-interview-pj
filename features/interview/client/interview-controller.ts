@@ -68,6 +68,8 @@ export type Snapshot = {
   echoTest: { deltaDb: number; echoLikely: boolean } | null;
   /** マイクを使わずテキストで回答するモード */
   textMode: boolean;
+  /** 音声認識が使えなくなり、途中から文字での回答に切り替えた理由 */
+  sttFallback: string | null;
 };
 
 export const PHRASES = {
@@ -146,6 +148,7 @@ const INITIAL_SNAPSHOT: Snapshot = {
   latencies: [],
   echoTest: null,
   textMode: false,
+  sttFallback: null,
 };
 
 const AVATAR_MODES: Record<RoomStatus, AvatarMode> = {
@@ -231,7 +234,7 @@ export class InterviewController {
   async prepare(config: ControllerConfig) {
     this.config = config;
     this.params = paramsForStyle(config.settings.style);
-    this.update({ status: "preparing", message: "マイクを準備しています…", textMode: config.sttProvider === "text" });
+    this.update({ status: "preparing", message: "マイクを準備しています…", textMode: config.sttProvider === "text", sttFallback: null });
     try {
       this.context = new AudioContext();
       this.speaker = new Speaker(
@@ -256,7 +259,7 @@ export class InterviewController {
         await this.stt.connect({
           onPartial: (text) => this.onPartial(text),
           onFinal: (text) => this.onFinal(text),
-          onError: (message) => this.update({ message }),
+          onError: (message, fatal) => (fatal ? this.fallBackToText(message) : this.update({ message })),
         });
         this.stt.pause();
       }
@@ -338,6 +341,8 @@ export class InterviewController {
       exportedAt: new Date().toISOString(),
       settings: this.config?.settings,
       sttProvider: this.config?.sttProvider,
+      /** 面接の途中で音声認識が使えなくなり、文字での回答に切り替えた理由 */
+      sttFallback: this.snapshot.sttFallback,
       ttsProvider: this.config?.ttsProvider,
       earphones: this.config?.earphones,
       plan: this.plan,
@@ -346,6 +351,23 @@ export class InterviewController {
       latencySummary: summarize(this.snapshot.latencies),
       echoTest: this.snapshot.echoTest,
     };
+  }
+
+  /** 音声認識が使えなくなったら、面接はそのまま続け、文字で回答してもらう */
+  private fallBackToText(message: string) {
+    if (!this.config || !this.usesVoice) return;
+    this.stt?.close();
+    this.stt = null;
+    this.capture?.stop();
+    this.capture = null;
+    this.config = { ...this.config, sttProvider: "text" };
+    clearTimeout(this.timers.silence);
+    const answering = this.snapshot.status === "answering";
+    if (answering) {
+      this.answer = { ...freshAnswer(), encouraged: true };
+      this.vad.resetUtterance();
+    }
+    this.update({ textMode: true, sttFallback: message, micLevel: 0, ...(answering ? { status: "listening" as const, candidateCaption: "" } : {}) });
   }
 
   private teardown() {

@@ -4,7 +4,8 @@
 export type SttHandlers = {
   onPartial: (text: string) => void;
   onFinal: (text: string) => void;
-  onError: (message: string) => void;
+  /** fatal が true なら、音声認識はこれ以上使えない(面接は文字での回答に切り替えて続ける) */
+  onError: (message: string, fatal?: boolean) => void;
 };
 
 export interface SttClient {

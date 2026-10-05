@@ -128,6 +128,12 @@ export function RoomView({
           </div>
         )}
 
+        {snap.sttFallback && (
+          <p role="alert" className="rounded-lg border border-border bg-background p-3 text-sm text-danger">
+            {snap.sttFallback}
+          </p>
+        )}
+
         {inInterview && textMode && (
           <form
             onSubmit={(e) => {
