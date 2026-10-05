@@ -17,11 +17,13 @@ import {
   fetchPhraseAudio,
   fetchPlan,
   fetchSttToken,
+  recognizeSpeech,
   postTurn,
   type TurnRequestBody,
 } from "./poc-api";
 import { base64ToArrayBuffer, Speaker } from "./speaker";
 import { AzureStt } from "./stt/azure";
+import { GoogleCloudStt } from "./stt/google";
 import type { SttClient } from "./stt/types";
 import { WebSpeechStt } from "./stt/web-speech";
 import { decideTurnEnd, paramsForStyle, type TurnDetectorParams } from "./turn-detector";
@@ -86,6 +88,8 @@ const WAIT_PHRASE_AFTER_MS = 3000;
 const ENCOURAGE_AFTER_MS = 15_000;
 const BARGE_IN_MS = 400;
 const HALF_DUPLEX_TAIL_MS = 300;
+/** 話し終わりを確定する前に、音声認識の結果を待つ上限 */
+const STT_FLUSH_TIMEOUT_MS = 8000;
 
 type DoneEvent = Extract<TurnEvent, { type: "done" }>;
 
@@ -251,6 +255,10 @@ export class InterviewController {
       this.plan = await fetchPlan(config.accessCode, config.settings, config.context);
 
       if (config.sttProvider === "webspeech") this.stt = new WebSpeechStt();
+      if (config.sttProvider === "google") {
+        const keywords = this.plan.stt_keywords.filter((k) => k.length <= 100).slice(0, 50);
+        this.stt = new GoogleCloudStt((pcm, words) => recognizeSpeech(config.accessCode, pcm, words), keywords);
+      }
       if (config.sttProvider === "azure") {
         this.stt = new AzureStt(() => fetchSttToken(config.accessCode), this.plan.stt_keywords);
       }
@@ -261,7 +269,8 @@ export class InterviewController {
           onFinal: (text) => this.onFinal(text),
           onError: (message, fatal) => (fatal ? this.fallBackToText(message) : this.update({ message })),
         });
-        this.stt.pause();
+        // 準備中に使えないと分かった場合は、文字での回答に切り替わっている(this.stt は null)
+        this.stt?.pause();
       }
 
       await this.loadPhrases();
@@ -674,6 +683,8 @@ export class InterviewController {
 
   private async finalizeAnswer(reason: string, speechEndedAt: number | null, totalVoiceMs: number) {
     this.answer.finalizing = true;
+    // 文字にしている途中の音声があれば、結果が届くまで待つ(Google Cloud の音声認識)
+    if (this.stt?.flush) await Promise.race([this.stt.flush(), sleep(STT_FLUSH_TIMEOUT_MS)]);
     // 途中結果が確定するのを少しだけ待つ
     const deadline = performance.now() + 600;
     while (this.answer.partial && performance.now() < deadline) await sleep(50);

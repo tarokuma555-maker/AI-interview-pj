@@ -124,7 +124,7 @@ export function SetupForm({
     setValues((v) => ({ ...v, context: { ...v.context, ...patch } }));
 
   const sttAvailable = (p: (typeof STT_PROVIDERS)[number]) =>
-    p === "azure" ? config.azureSpeech : p === "webspeech" ? webSpeech : true;
+    p === "azure" ? config.azureSpeech : p === "google" ? config.googleStt : p === "webspeech" ? webSpeech : true;
   const ttsAvailable = (p: (typeof TTS_PROVIDERS)[number]) =>
     p === "azure" ? config.azureSpeech : p === "google" ? config.googleTts : true;
 

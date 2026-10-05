@@ -1,6 +1,7 @@
 import { INTERVIEWER_MODELS, isMockAi } from "@/lib/ai/models";
 import { INTERVIEWER_MODEL_KEYS } from "@/lib/interview/types";
 import { checkPocAccess } from "@/lib/poc/access";
+import { isGoogleSttConfigured } from "@/lib/speech/stt/google";
 import { isAzureSpeechConfigured, isGoogleTtsConfigured } from "@/lib/speech/tts";
 import { VOICES } from "@/lib/speech/voices";
 
@@ -13,6 +14,7 @@ export async function GET(request: Request) {
     aiMode: isMockAi() ? "mock" : "live",
     azureSpeech: isAzureSpeechConfigured(),
     googleTts: isGoogleTtsConfigured(),
+    googleStt: isGoogleSttConfigured(),
     interviewerModels: INTERVIEWER_MODEL_KEYS.map((key) => ({ key, label: INTERVIEWER_MODELS[key].label })),
     voices: VOICES.map(({ id, label }) => ({ id, label })),
   });

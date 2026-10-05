@@ -179,7 +179,7 @@ function defaultValues(config: PocConfig, saved: SetupValues | null, voiceGender
       voiceId: VOICES.find((v) => v.gender === voiceGender && config.voices.some((c) => c.id === v.id))?.id ?? config.voices[0]?.id ?? "female_a",
     },
     context: DEFAULT_CONTEXT,
-    sttProvider: config.azureSpeech ? "azure" : sttDefault,
+    sttProvider: config.googleStt ? "google" : config.azureSpeech ? "azure" : sttDefault,
     ttsProvider: ttsDefault,
     earphones: false,
   };
@@ -189,7 +189,12 @@ function defaultValues(config: PocConfig, saved: SetupValues | null, voiceGender
     ...saved,
     settings: { ...base.settings, ...saved.settings },
     context: { ...base.context, ...saved.context },
-    sttProvider: saved.sttProvider === "azure" && !config.azureSpeech ? base.sttProvider : saved.sttProvider,
+    // 音声認識も、Google Cloud が使える場合は前回の選択に関係なく Google Cloud から始める
+    // (ブラウザ標準の音声認識は Safari などで聞き取れないことがある)
+    sttProvider:
+      config.googleStt || (saved.sttProvider === "azure" && !config.azureSpeech) || saved.sttProvider === "google"
+        ? base.sttProvider
+        : saved.sttProvider,
     // 面接官の声をそろえるため、Google Cloud が使える場合は、前回の選択に関係なく Google Cloud から始める
     // (ブラウザ標準の読み上げは端末ごとに声が変わる)
     ttsProvider:

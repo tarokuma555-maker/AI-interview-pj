@@ -21,6 +21,7 @@ export type PocConfig = {
   aiMode: "live" | "mock";
   azureSpeech: boolean;
   googleTts: boolean;
+  googleStt: boolean;
   interviewerModels: { key: SessionSettings["interviewerModel"]; label: string }[];
   voices: { id: string; label: string }[];
 };
@@ -54,6 +55,23 @@ export async function fetchSttToken(code: string): Promise<{ token: string; regi
   const response = await fetch("/api/poc/stt-token", { method: "POST", headers: headers(code) });
   if (!response.ok) throw await toApiError(response);
   return (await response.json()) as { token: string; region: string; expiresAt: number };
+}
+
+/** 話の区切りごとの音声(16kHz・16bit・モノラルの PCM)を、Google Cloud の音声認識で文字にする */
+export async function recognizeSpeech(code: string, pcm: Int16Array, keywords: string[]): Promise<string> {
+  const response = await fetch("/api/poc/stt", {
+    method: "POST",
+    headers: headers(code),
+    body: JSON.stringify({ audio: toBase64(new Uint8Array(pcm.buffer, pcm.byteOffset, pcm.byteLength)), keywords }),
+  });
+  if (!response.ok) throw await toApiError(response);
+  return ((await response.json()) as { text: string }).text;
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary);
 }
 
 /** サーバーで音声を合成するサービス */

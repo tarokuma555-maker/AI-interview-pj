@@ -16,6 +16,8 @@ export interface SttClient {
   sendAudio(frame: Int16Array): void;
   /** 面接官の発話中など、認識を一時的に止める */
   pause(): void;
+  /** 文字にしている途中の音声があれば、結果が届くまで待つ(話し終わりを確定する前に呼ぶ) */
+  flush?(): Promise<void>;
   resume(): void;
   close(): void;
 }

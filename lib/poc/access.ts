@@ -32,6 +32,7 @@ const LIMITS: Record<string, number> = {
   "/api/poc/turns": 60,
   "/api/poc/plan": 10,
   "/api/poc/tts": 60,
+  "/api/poc/stt": 120,
   "/api/poc/stt-token": 10,
   "/api/poc/config": 30,
 };

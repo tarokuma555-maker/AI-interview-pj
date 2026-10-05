@@ -36,10 +36,12 @@ export function findVoice(id: string): VoiceOption {
   return VOICES.find((v) => v.id === id) ?? VOICES[0];
 }
 
-export const STT_PROVIDERS = ["webspeech", "azure", "text"] as const;
+/** 設定画面に並べる順(最初の Google Cloud が標準) */
+export const STT_PROVIDERS = ["google", "webspeech", "azure", "text"] as const;
 export type SttProvider = (typeof STT_PROVIDERS)[number];
 export const STT_PROVIDER_LABELS: Record<SttProvider, string> = {
-  webspeech: "ブラウザ標準(Web Speech API)",
+  google: "Google Cloud(Speech-to-Text。どのブラウザでも使える)",
+  webspeech: "ブラウザ標準(Chrome・Edge 向け)",
   azure: "Azure AI Speech",
   text: "テキスト入力(マイクなし)",
 };
