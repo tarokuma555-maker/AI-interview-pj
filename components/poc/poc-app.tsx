@@ -190,8 +190,10 @@ function defaultValues(config: PocConfig, saved: SetupValues | null, voiceGender
     settings: { ...base.settings, ...saved.settings },
     context: { ...base.context, ...saved.context },
     sttProvider: saved.sttProvider === "azure" && !config.azureSpeech ? base.sttProvider : saved.sttProvider,
+    // 面接官の声をそろえるため、Google Cloud が使える場合は、前回の選択に関係なく Google Cloud から始める
+    // (ブラウザ標準の読み上げは端末ごとに声が変わる)
     ttsProvider:
-      (saved.ttsProvider === "azure" && !config.azureSpeech) || (saved.ttsProvider === "google" && !config.googleTts)
+      config.googleTts || (saved.ttsProvider === "azure" && !config.azureSpeech) || saved.ttsProvider === "google"
         ? base.ttsProvider
         : saved.ttsProvider,
   };

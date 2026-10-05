@@ -253,6 +253,11 @@ export function SetupForm({
           {preview.error && <span className="text-danger">{preview.error}</span>}
           {voicesError && <span className="text-danger">{voicesError}</span>}
         </div>
+        {!config.googleTts && (
+          <p className="text-sm text-muted">
+            Google Cloud の声(標準)を使うには、サーバーに GOOGLE_TTS_API_KEY を設定してください(Vercel の環境変数。設定したあとに再デプロイが必要です)。
+          </p>
+        )}
         {provider === "google" && (
           <p className="text-sm text-muted">
             Chirp 3 HD は最も自然な声(本番の想定で月 約2.3万円)、WaveNet は低価格の声(同 約1,200円)です。試作版は毎月の無料枠の範囲で使えます。声によっては高さ・速さの調整が効かないものがあります(その場合は調整なしで読み上げます)。

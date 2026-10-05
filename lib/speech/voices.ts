@@ -44,10 +44,11 @@ export const STT_PROVIDER_LABELS: Record<SttProvider, string> = {
   text: "テキスト入力(マイクなし)",
 };
 
-export const TTS_PROVIDERS = ["browser", "google", "azure", "mock"] as const;
+/** 設定画面に並べる順(最初の Google Cloud が標準) */
+export const TTS_PROVIDERS = ["google", "azure", "browser", "mock"] as const;
 export type TtsProvider = (typeof TTS_PROVIDERS)[number];
 export const TTS_PROVIDER_LABELS: Record<TtsProvider, string> = {
-  browser: "ブラウザ標準(speechSynthesis)",
+  browser: "ブラウザ標準(端末によって声が変わる)",
   google: "Google Cloud(Text-to-Speech)",
   azure: "Azure AI Speech",
   mock: "テスト音(発話時間ぶんの信号音)",
