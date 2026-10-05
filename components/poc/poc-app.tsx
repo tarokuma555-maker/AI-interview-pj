@@ -8,7 +8,7 @@ import { isWebSpeechSupported } from "@/features/interview/client/stt/web-speech
 import { VOICES, type VoiceGender } from "@/lib/speech/voices";
 import { DEFAULT_AVATAR_SETTINGS, parseAvatarSettings, resolveAvatar, type AvatarSettings } from "@/features/avatar/settings";
 import { AvatarPicker } from "./avatar-picker";
-import { DEFAULT_CONTEXT, isLegacySampleContext, SetupForm, type SetupValues, type VoiceTools } from "./setup-form";
+import { DEFAULT_CONTEXT, isPreviousSampleContext, SetupForm, type SetupValues, type VoiceTools } from "./setup-form";
 import { RoomView } from "./room-view";
 
 const CODE_KEY = "poc-access-code";
@@ -188,8 +188,8 @@ function defaultValues(config: PocConfig, saved: SetupValues | null, voiceGender
     ...base,
     ...saved,
     settings: { ...base.settings, ...saved.settings },
-    // 以前のサンプル(法人営業)のままなら、医療職のサンプルに置き換える
-    context: isLegacySampleContext(saved.context) ? base.context : { ...base.context, ...saved.context },
+    // 以前のサンプルのままなら、いまのサンプルに置き換える
+    context: isPreviousSampleContext(saved.context) ? base.context : { ...base.context, ...saved.context },
     // 音声認識も、Google Cloud が使える場合は前回の選択に関係なく Google Cloud から始める
     // (ブラウザ標準の音声認識は Safari などで聞き取れないことがある)
     sttProvider:
