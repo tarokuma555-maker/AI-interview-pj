@@ -22,14 +22,27 @@ export const STT_SAMPLE_RATE = 16000;
 
 type Options = { phrases?: string[]; signal?: AbortSignal };
 
+/**
+ * 面接でよく使い、聞き違えやすい言葉(同じ読みの言葉が多い・カタカナ語・略語)。
+ * 応募先の社名など、その面接に固有の言葉(質問計画から取り出したもの)より弱く後押しする。
+ */
+export const INTERVIEW_PHRASES = [
+  "御社", "貴社", "弊社", "前職", "現職", "前々職", "志望動機", "自己PR", "職務経歴", "転職", "退職理由",
+  "キャリア", "キャリアアップ", "マネジメント", "プロジェクトマネージャー", "リーダー", "メンバー", "チームリーダー",
+  "法人営業", "新規開拓", "既存顧客", "売上", "目標達成", "KPI", "KGI", "PDCA", "SaaS", "DX", "業務改善", "課題解決",
+];
+const SESSION_BOOST = 15;
+const COMMON_BOOST = 5;
+
+type Settings = { boost: boolean; model: boolean; punctuation: boolean };
 /** 断られた設定(同じキーでは次から送らない) */
-const unsupported = new Set<"model" | "punctuation">();
+const unsupported = new Set<keyof Settings>();
 
 export async function recognizeGoogle(apiKey: string, pcm: Buffer, { phrases = [], signal }: Options = {}): Promise<string> {
-  const settings = { model: !unsupported.has("model"), punctuation: !unsupported.has("punctuation") };
+  const settings: Settings = { boost: !unsupported.has("boost"), model: !unsupported.has("model"), punctuation: !unsupported.has("punctuation") };
   let response = await request(apiKey, pcm, phrases, settings, signal);
-  // 長い話向けのモデル・句読点の自動挿入に対応していない場合は、外してもう一度試し、外したことを覚えておく
-  for (const key of ["model", "punctuation"] as const) {
+  // 言葉の後押し・長い話向けのモデル・句読点の自動挿入に対応していない場合は、外してもう一度試し、外したことを覚えておく
+  for (const key of ["boost", "model", "punctuation"] as const) {
     if (response.status !== 400 || !settings[key]) continue;
     console.warn(`google stt rejected ${key}, retrying without it`, await errorDetail(response));
     settings[key] = false;
@@ -44,7 +57,13 @@ export async function recognizeGoogle(apiKey: string, pcm: Buffer, { phrases = [
   return joinTranscripts((body.results ?? []).map((result) => result.alternatives?.[0]?.transcript ?? ""));
 }
 
-function request(apiKey: string, pcm: Buffer, phrases: string[], settings: { model: boolean; punctuation: boolean }, signal?: AbortSignal) {
+function request(apiKey: string, pcm: Buffer, phrases: string[], settings: Settings, signal?: AbortSignal) {
+  const contexts = [
+    { phrases, boost: SESSION_BOOST },
+    { phrases: INTERVIEW_PHRASES, boost: COMMON_BOOST },
+  ]
+    .filter((context) => context.phrases.length > 0)
+    .map((context) => (settings.boost ? context : { phrases: context.phrases }));
   return fetch(`${baseUrl()}/v1/speech:recognize`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Goog-Api-Key": apiKey },
@@ -55,8 +74,8 @@ function request(apiKey: string, pcm: Buffer, phrases: string[], settings: { mod
         languageCode: "ja-JP",
         ...(settings.model ? { model: "latest_long" } : {}),
         ...(settings.punctuation ? { enableAutomaticPunctuation: true } : {}),
-        // 会社名・職種などの言葉を認識しやすくする
-        ...(phrases.length > 0 ? { speechContexts: [{ phrases }] } : {}),
+        // 応募先の社名・職種や、面接でよく使う言葉を認識しやすくする
+        speechContexts: contexts,
       },
       audio: { content: pcm.toString("base64") },
     }),

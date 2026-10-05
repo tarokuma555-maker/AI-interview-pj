@@ -11,8 +11,8 @@ import type { SttClient, SttHandlers } from "./types";
 const SAMPLE_RATE = 16000;
 /** この長さの間があれば、そこで区切って文字にし始める */
 const SEGMENT_PAUSE_MS = 500;
-/** 話し始めの取りこぼしを防ぐため、声を検知する前の音も少し含める */
-const PRE_ROLL_MS = 300;
+/** 話し始めの取りこぼしを防ぐため、声を検知する前の音も含める(小さな声で始まる「えー」「わたし」なども残す) */
+const PRE_ROLL_MS = 500;
 /** 1回に送る長さの上限(サーバーの上限 55 秒より短く) */
 const MAX_SEGMENT_MS = 45_000;
 /** これより短い区切りは、咳などの雑音とみなして送らない */

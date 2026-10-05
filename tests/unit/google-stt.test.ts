@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GoogleCloudStt } from "@/features/interview/client/stt/google";
-import { GoogleSttUnavailableError, joinTranscripts, recognizeGoogle } from "@/lib/speech/stt/google";
+import { GoogleSttUnavailableError, INTERVIEW_PHRASES, joinTranscripts, recognizeGoogle } from "@/lib/speech/stt/google";
 
 describe("recognizeGoogle(サーバー)", () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -24,9 +24,25 @@ describe("recognizeGoogle(サーバー)", () => {
       languageCode: "ja-JP",
       model: "latest_long",
       enableAutomaticPunctuation: true,
-      speechContexts: [{ phrases: ["法人営業"] }],
+      speechContexts: [
+        { phrases: ["法人営業"], boost: 15 },
+        { phrases: INTERVIEW_PHRASES, boost: 5 },
+      ],
     });
     expect(Buffer.from(body.audio.content, "base64").equals(pcm)).toBe(true);
+  });
+
+  it("言葉の後押し(boost)を断られたら、言葉だけを渡してもう一度試す", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ error: { message: "boost is not supported" } }, { status: 400 }))
+      .mockImplementation(async () => Response.json({ results: [{ alternatives: [{ transcript: "はい" }] }] }));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    expect(await recognizeGoogle("key-3", pcm, { phrases: ["法人営業"] })).toBe("はい");
+    const retried = JSON.parse(fetchMock.mock.calls[1][1].body).config;
+    expect(retried.speechContexts).toEqual([{ phrases: ["法人営業"] }, { phrases: INTERVIEW_PHRASES }]);
+    expect(retried.model).toBe("latest_long");
   });
 
   it("API が有効になっていない・キーで許可されていない場合は、設定の問題として知らせる", async () => {
@@ -67,8 +83,9 @@ describe("GoogleCloudStt(ブラウザ)", () => {
     await t.stt.flush();
     expect(t.calls.slice(1)).toHaveLength(1);
     const seconds = t.calls[1] / 16000;
-    expect(seconds).toBeGreaterThan(1.2);
-    expect(seconds).toBeLessThan(1.9);
+    // 声の前の0.5秒 + 声1秒 + 区切りの間0.5秒
+    expect(seconds).toBeGreaterThan(1.8);
+    expect(seconds).toBeLessThan(2.2);
     expect(t.finals).toEqual(["はい、営業職です。"]);
   });
 
