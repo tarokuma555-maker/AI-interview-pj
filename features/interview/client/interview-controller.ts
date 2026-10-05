@@ -9,15 +9,18 @@ import {
   type TurnEvent,
   type TurnRecord,
 } from "@/lib/interview/types";
+import { INTERVIEW_PHRASES, MEDICAL_PHRASES } from "@/lib/speech/phrases";
 import type { SttProvider, TtsProvider, VoiceGender } from "@/lib/speech/voices";
 import { AudioCapture, FRAME_MS, type CaptureFrame } from "./audio-capture";
 import { summarize, type LatencyRecord } from "./latency";
 import {
   ApiError,
   fetchPhraseAudio,
+  fetchFeedback,
   fetchPlan,
   fetchSttToken,
   recognizeSpeech,
+  type FeedbackResult,
   postTurn,
   type TurnRequestBody,
 } from "./poc-api";
@@ -72,7 +75,16 @@ export type Snapshot = {
   textMode: boolean;
   /** 音声認識が使えなくなり、途中から文字での回答に切り替えた理由 */
   sttFallback: string | null;
+  /** 面接後の評価・フィードバック(設計書 4.6) */
+  feedback: FeedbackState;
 };
+
+export type FeedbackState =
+  | { status: "none" }
+  | { status: "loading" }
+  | { status: "done"; result: FeedbackResult }
+  | { status: "failed"; message: string }
+  | { status: "no_answers" };
 
 export const PHRASES = {
   wait: "少々お待ちください。",
@@ -153,6 +165,7 @@ const INITIAL_SNAPSHOT: Snapshot = {
   echoTest: null,
   textMode: false,
   sttFallback: null,
+  feedback: { status: "none" },
 };
 
 const AVATAR_MODES: Record<RoomStatus, AvatarMode> = {
@@ -260,7 +273,7 @@ export class InterviewController {
         this.stt = new GoogleCloudStt((pcm, words) => recognizeSpeech(config.accessCode, pcm, words), keywords);
       }
       if (config.sttProvider === "azure") {
-        this.stt = new AzureStt(() => fetchSttToken(config.accessCode), this.plan.stt_keywords);
+        this.stt = new AzureStt(() => fetchSttToken(config.accessCode), [...this.plan.stt_keywords, ...INTERVIEW_PHRASES, ...MEDICAL_PHRASES]);
       }
       if (this.stt) {
         this.update({ message: "音声認識を準備しています…" });
@@ -337,6 +350,29 @@ export class InterviewController {
     this.teardown();
     await this.context?.close().catch(() => undefined);
     this.update({ status: "finished", micLevel: 0, message: null });
+    void this.requestFeedback();
+  }
+
+  /** 面接後の評価を作る(面接の終了時に自動で呼ぶ。失敗したら画面の「評価を作り直す」から呼ぶ) */
+  async requestFeedback() {
+    if (!this.config || this.snapshot.feedback.status === "loading") return;
+    if (!this.history.some((turn) => turn.speaker === "candidate")) {
+      this.update({ feedback: { status: "no_answers" } });
+      return;
+    }
+    this.update({ feedback: { status: "loading" } });
+    try {
+      const result = await fetchFeedback(this.config.accessCode, {
+        settings: this.config.settings,
+        context: this.config.context,
+        plan: this.plan,
+        history: this.history,
+      });
+      this.update({ feedback: { status: "done", result } });
+    } catch (error) {
+      if (error instanceof ApiError && error.code === "NO_ANSWERS") this.update({ feedback: { status: "no_answers" } });
+      else this.update({ feedback: { status: "failed", message: errorMessage(error) } });
+    }
   }
 
   dispose() {
@@ -358,6 +394,7 @@ export class InterviewController {
       history: this.history,
       latencies: this.snapshot.latencies,
       latencySummary: summarize(this.snapshot.latencies),
+      feedback: this.snapshot.feedback.status === "done" ? this.snapshot.feedback.result : null,
       echoTest: this.snapshot.echoTest,
     };
   }

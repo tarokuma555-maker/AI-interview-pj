@@ -68,6 +68,8 @@ export const turnRecordSchema = z.object({
   speechMs: z.number().int().nonnegative().optional(),
   responseDelayMs: z.number().int().nonnegative().optional(),
   charsPerMinute: z.number().nonnegative().optional(),
+  /** 求職者が答えたときの面接の段階(逆質問の場面での発言かを評価で見分けるため) */
+  phase: z.enum(PHASES).optional(),
 });
 export type TurnRecord = z.infer<typeof turnRecordSchema>;
 

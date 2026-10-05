@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GoogleCloudStt } from "@/features/interview/client/stt/google";
-import { GoogleSttUnavailableError, INTERVIEW_PHRASES, joinTranscripts, recognizeGoogle } from "@/lib/speech/stt/google";
+import { INTERVIEW_PHRASES, MEDICAL_PHRASES } from "@/lib/speech/phrases";
+import { GoogleSttUnavailableError, joinTranscripts, recognizeGoogle } from "@/lib/speech/stt/google";
 
 describe("recognizeGoogle(サーバー)", () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -27,6 +28,7 @@ describe("recognizeGoogle(サーバー)", () => {
       speechContexts: [
         { phrases: ["法人営業"], boost: 15 },
         { phrases: INTERVIEW_PHRASES, boost: 5 },
+        { phrases: MEDICAL_PHRASES, boost: 4 },
       ],
     });
     expect(Buffer.from(body.audio.content, "base64").equals(pcm)).toBe(true);
@@ -41,7 +43,7 @@ describe("recognizeGoogle(サーバー)", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     expect(await recognizeGoogle("key-3", pcm, { phrases: ["法人営業"] })).toBe("はい");
     const retried = JSON.parse(fetchMock.mock.calls[1][1].body).config;
-    expect(retried.speechContexts).toEqual([{ phrases: ["法人営業"] }, { phrases: INTERVIEW_PHRASES }]);
+    expect(retried.speechContexts).toEqual([{ phrases: ["法人営業"] }, { phrases: INTERVIEW_PHRASES }, { phrases: MEDICAL_PHRASES }]);
     expect(retried.model).toBe("latest_long");
   });
 

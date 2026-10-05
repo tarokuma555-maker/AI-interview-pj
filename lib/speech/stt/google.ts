@@ -1,3 +1,5 @@
+import { INTERVIEW_PHRASES, MEDICAL_PHRASES } from "@/lib/speech/phrases";
+
 /**
  * Google Cloud Speech-to-Text(REST v1 の speech:recognize)。ブラウザが話の区切りごとに送る音声を文字にする。
  * どのブラウザ(Safari・スマホを含む)でも同じ精度で使えるよう、ブラウザ標準の音声認識の代わりに使う(設計書 14.1)。
@@ -23,16 +25,12 @@ export const STT_SAMPLE_RATE = 16000;
 type Options = { phrases?: string[]; signal?: AbortSignal };
 
 /**
- * 面接でよく使い、聞き違えやすい言葉(同じ読みの言葉が多い・カタカナ語・略語)。
- * 応募先の社名など、その面接に固有の言葉(質問計画から取り出したもの)より弱く後押しする。
+ * 言葉の後押しの強さ。応募先の社名など、その面接に固有の言葉(質問計画から取り出したもの)を最も強くし、
+ * 面接全般・医療職でよく使う言葉は、ほかの言葉を押しのけないよう弱めにする(数が多い医療の言葉は特に弱く)。
  */
-export const INTERVIEW_PHRASES = [
-  "御社", "貴社", "弊社", "前職", "現職", "前々職", "志望動機", "自己PR", "職務経歴", "転職", "退職理由",
-  "キャリア", "キャリアアップ", "マネジメント", "プロジェクトマネージャー", "リーダー", "メンバー", "チームリーダー",
-  "法人営業", "新規開拓", "既存顧客", "売上", "目標達成", "KPI", "KGI", "PDCA", "SaaS", "DX", "業務改善", "課題解決",
-];
 const SESSION_BOOST = 15;
 const COMMON_BOOST = 5;
+const MEDICAL_BOOST = 4;
 
 type Settings = { boost: boolean; model: boolean; punctuation: boolean };
 /** 断られた設定(同じキーでは次から送らない) */
@@ -61,6 +59,7 @@ function request(apiKey: string, pcm: Buffer, phrases: string[], settings: Setti
   const contexts = [
     { phrases, boost: SESSION_BOOST },
     { phrases: INTERVIEW_PHRASES, boost: COMMON_BOOST },
+    { phrases: MEDICAL_PHRASES, boost: MEDICAL_BOOST },
   ]
     .filter((context) => context.phrases.length > 0)
     .map((context) => (settings.boost ? context : { phrases: context.phrases }));

@@ -34,15 +34,22 @@ export type VoiceTools = {
   gender?: VoiceGender;
 };
 
+/** 応募先と応募書類のサンプル(主な利用者である医療職の例。架空の病院) */
 export const DEFAULT_CONTEXT: CandidateContext = {
-  companyName: "株式会社サンプル",
-  position: "法人営業(SaaS)",
+  companyName: "医療法人 サンプル会 サンプル総合病院",
+  position: "看護師(急性期・内科病棟)",
   jobDescription:
-    "中小企業向けの業務管理SaaSの法人営業。新規顧客への提案から契約までを担当。法人営業の経験3年以上を歓迎。",
+    "300床の急性期総合病院。内科病棟の看護師として、入院患者の看護、医師・薬剤師・リハビリ職などとの多職種連携、退院支援を担当。二交代制で夜勤は月4回程度。急性期病棟での経験3年以上を歓迎。プリセプターとして新人看護師の指導にも関わってほしい。",
   careerSummary:
-    "大学卒業後、事務機器メーカーで法人営業を6年担当。中小企業向けに複合機と保守サービスを提案し、2年連続で売上目標120%を達成。後輩3名の育成も担当。",
-  reasonForChange: "ハードウェアの販売から、顧客の業務改善に継続的に関われるSaaSの営業に挑戦したい。",
+    "看護専門学校を卒業後、地域のケアミックス病院(200床)の内科病棟で8年勤務。三交代制で受け持ち患者の看護と退院支援を担当。3年目からプリセプターとして新人看護師4名を指導。病棟の与薬に関わるインシデントを減らすため、ダブルチェックの手順を見直し、前年より約3割減らした。",
+  reasonForChange:
+    "現職は慢性期の患者さんが中心で、急性期の看護を学ぶ機会が限られている。より重症度の高い患者さんを受け入れる急性期の現場で経験を積み、将来はクリティカルケア分野の認定看護師を目指したい。",
 };
+
+/** 以前のサンプル(法人営業)。保存された設定がこのままなら、新しいサンプルに置き換える */
+export function isLegacySampleContext(context: Partial<CandidateContext> | undefined): boolean {
+  return context?.companyName === "株式会社サンプル" && context?.position === "法人営業(SaaS)";
+}
 
 const inputClass = "rounded-lg border border-border bg-background px-3 py-2";
 

@@ -37,6 +37,12 @@ export const PLAN_MODEL = {
   effort: "medium" as const,
 };
 
+/** 面接後の評価・フィードバック(設計書 4.6)。速さより質を重視する */
+export const FEEDBACK_MODEL = {
+  id: process.env.AI_MODEL_FEEDBACK ?? "claude-opus-5-5",
+  effort: "high" as const,
+};
+
 export function isMockAi(): boolean {
   return process.env.AI_PROVIDER === "mock";
 }

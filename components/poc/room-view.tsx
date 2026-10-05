@@ -4,6 +4,7 @@ import { useState, useSyncExternalStore } from "react";
 import type { AvatarManifest } from "@/features/avatar/manifest";
 import type { InterviewController, RoomStatus } from "@/features/interview/client/interview-controller";
 import { AvatarView, isWideAvatar } from "./avatar-view";
+import { FeedbackView } from "./feedback-view";
 import { LatencyPanel } from "./latency-panel";
 
 const STATUS_LABELS: Record<RoomStatus, string> = {
@@ -191,6 +192,8 @@ export function RoomView({
           )}
         </div>
       </section>
+
+      <FeedbackView state={snap.feedback} onRetry={() => void controller.requestFeedback()} />
 
       <LatencyPanel records={snap.latencies} />
 

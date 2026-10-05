@@ -90,6 +90,7 @@ async function produce(input: TurnInput, deps: TurnDeps, emit: (event: TurnEvent
       speechMs: input.answer?.speechMs,
       responseDelayMs: input.answer?.responseDelayMs,
       charsPerMinute: charsPerMinute(text, input.answer?.speechMs),
+      phase: state.phase,
     });
     if (state.phase === "opening") state.phase = "main";
   }

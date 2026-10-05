@@ -1,4 +1,6 @@
+import type { Feedback } from "@/lib/ai/schemas/feedback";
 import type { QuestionPlan } from "@/lib/ai/schemas/plan";
+import type { AnswerMetrics } from "@/lib/interview/speech-metrics";
 import type { CandidateContext, SessionSettings, SessionState, TurnEvent, TurnRecord } from "@/lib/interview/types";
 import type { GoogleVoice } from "@/lib/speech/google-voices";
 import type { VoiceRequest } from "@/lib/speech/tts/types";
@@ -72,6 +74,19 @@ function toBase64(bytes: Uint8Array): string {
   let binary = "";
   for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return btoa(binary);
+}
+
+export type FeedbackResult = { feedback: Feedback; metrics: AnswerMetrics[] };
+
+/** 面接後の評価・フィードバック(設計書 4.6)。AIの応答の中身など、評価に使わない記録は送らない */
+export async function fetchFeedback(
+  code: string,
+  body: { settings: SessionSettings; context: CandidateContext; plan: QuestionPlan | null; history: TurnRecord[] },
+): Promise<FeedbackResult> {
+  const history = body.history.map((turn) => ({ ...turn, llmContent: undefined, sentences: undefined }));
+  const response = await fetch("/api/poc/feedback", { method: "POST", headers: headers(code), body: JSON.stringify({ ...body, history }) });
+  if (!response.ok) throw await toApiError(response);
+  return (await response.json()) as FeedbackResult;
 }
 
 /** サーバーで音声を合成するサービス */
