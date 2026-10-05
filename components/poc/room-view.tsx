@@ -86,15 +86,12 @@ export function RoomView({
           {snap.message && <p className="text-center text-sm text-danger">{snap.message}</p>}
         </div>
 
+        {/* 字幕は面接官の発言だけ。自分の発言は、下の「会話の記録」で確認できる */}
         {captions && inInterview && (
-          <div className="flex flex-col gap-2 rounded-lg bg-background p-3 text-sm">
+          <div className="rounded-lg bg-background p-3 text-sm">
             <p>
               <span className="font-semibold">面接官:</span>
               {snap.interviewerCaption}
-            </p>
-            <p>
-              <span className="font-semibold">あなた:</span>
-              {snap.candidateCaption}
             </p>
           </div>
         )}

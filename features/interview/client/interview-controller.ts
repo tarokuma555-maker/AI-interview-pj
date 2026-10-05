@@ -67,7 +67,6 @@ export type Snapshot = {
   phase: Phase;
   remainingSec: number | null;
   interviewerCaption: string;
-  candidateCaption: string;
   micLevel: number;
   latencies: LatencyRecord[];
   echoTest: { deltaDb: number; echoLikely: boolean } | null;
@@ -159,7 +158,6 @@ const INITIAL_SNAPSHOT: Snapshot = {
   phase: "opening",
   remainingSec: null,
   interviewerCaption: "",
-  candidateCaption: "",
   micLevel: 0,
   latencies: [],
   echoTest: null,
@@ -341,7 +339,6 @@ export class InterviewController {
   submitText(text: string) {
     const trimmed = text.trim();
     if (!trimmed || this.snapshot.status !== "listening") return;
-    this.update({ candidateCaption: trimmed });
     void this.performTurn({ kind: "answer", answer: { text: trimmed, inputMode: "text" } }, "text", performance.now());
   }
 
@@ -413,7 +410,7 @@ export class InterviewController {
       this.answer = { ...freshAnswer(), encouraged: true };
       this.vad.resetUtterance();
     }
-    this.update({ textMode: true, sttFallback: message, micLevel: 0, ...(answering ? { status: "listening" as const, candidateCaption: "" } : {}) });
+    this.update({ textMode: true, sttFallback: message, micLevel: 0, ...(answering ? { status: "listening" as const } : {}) });
   }
 
   private teardown() {
@@ -667,17 +664,11 @@ export class InterviewController {
       // 声が小さく音量で検知できなかった場合も、文字起こしが届いたら話し始めとみなす
       if (this.snapshot.status === "listening") this.onSpeechStart(performance.now());
     }
-    if (this.snapshot.status === "answering" || this.snapshot.status === "listening") {
-      this.update({ candidateCaption: this.currentText() });
-    }
   }
 
   private onFinal(text: string) {
     this.answer.finals.push(text);
     if (this.snapshot.status === "listening") this.onSpeechStart(performance.now());
-    if (this.snapshot.status === "answering" || this.snapshot.status === "listening") {
-      this.update({ candidateCaption: this.currentText() });
-    }
   }
 
   private currentText(): string {
@@ -738,7 +729,7 @@ export class InterviewController {
     this.vad.resetUtterance();
     if (!this.fullDuplex) this.stt?.pause();
     clearTimeout(this.timers.silence);
-    this.update({ candidateCaption: text, message: null });
+    this.update({ message: null });
     await this.performTurn(
       {
         kind: "answer",
@@ -772,7 +763,7 @@ export class InterviewController {
     }
     const startedAt = this.answer.bargeStartAt;
     this.answer = { ...freshAnswer(), finals: this.answer.finals, partial: this.answer.partial, speechStartedAt: startedAt, encouraged: true };
-    this.update({ status: "answering", candidateCaption: this.currentText() });
+    this.update({ status: "answering" });
   }
 
   private recordLatency(turn: ActiveTurn) {
