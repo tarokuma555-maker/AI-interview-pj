@@ -71,6 +71,7 @@ export class AvatarBehavior {
       nod: this.nod(now),
       breath: wave(4.2),
       mouthImages: [],
+      mouthFrames: null,
     };
   }
 

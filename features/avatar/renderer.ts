@@ -7,6 +7,7 @@ import {
   type MouthImageKey,
   type Rect,
 } from "./manifest";
+import { mouthFramesSchema, type MouthFrameBlend, type MouthFrames } from "./mouth-frames";
 import type { MouthImageWeight } from "./mouth-images";
 import { buildRig, type AvatarPose, type FaceRig } from "./rig";
 
@@ -14,7 +15,8 @@ import { buildRig, type AvatarPose, type FaceRig } from "./rig";
  * 顔画像を、口・まぶた・頭の動きに合わせて描く(設計書 3.12)。
  * 画面の各点が元画像のどこに当たるかを WebGL のシェーダーで計算する。
  * 表情違いの画像(口の形・目を閉じた顔)があれば、口元・目元にその画像をなめらかに重ねる。
- * なければ元画像を変形し、開いた口の中(歯・舌)はシェーダーで描き足す。
+ * 話している動画から作った口元のコマ(mouth-frames.ts)があれば、口元はそのコマを重ねる。
+ * どちらもなければ元画像を変形し、開いた口の中(歯・舌)はシェーダーで描き足す。
  */
 
 export interface AvatarSurface {
@@ -22,6 +24,8 @@ export interface AvatarSurface {
   readonly animated: boolean;
   /** 使える口の形の画像 */
   readonly mouthImageKeys: readonly MouthImageKey[];
+  /** 使える口元のコマ(読み込めた場合) */
+  readonly mouthFrames: MouthFrames | null;
   render(pose: AvatarPose): void;
   dispose(): void;
 }
@@ -31,9 +35,9 @@ const ZOOM = 1.03;
 const MAX_TEXTURE_SIZE = 1536;
 
 export async function createAvatarSurface(canvas: HTMLCanvasElement, manifest: AvatarManifest): Promise<AvatarSurface> {
-  const [image, expressions] = await Promise.all([loadImage(manifest), loadExpressions(manifest)]);
+  const [image, expressions, frames] = await Promise.all([loadImage(manifest), loadExpressions(manifest), loadMouthFrames(manifest)]);
   const rig = buildRig(manifest);
-  return WebGlSurface.create(canvas, image, rig, expressions) ?? new CanvasSurface(canvas, image, rig);
+  return WebGlSurface.create(canvas, image, rig, expressions, frames) ?? new CanvasSurface(canvas, image, rig);
 }
 
 /** 画像を読み込み、透明部分を白で埋めたキャンバスにする(大きすぎる画像は縮小する) */
@@ -91,6 +95,28 @@ async function loadExpression(expression: ExpressionImage, region: Rect, manifes
   const canvas = drawToCanvas(null, region.width, region.height);
   canvas.getContext("2d")!.drawImage(img, region.x * sx, region.y * sy, region.width * sx, region.height * sy, 0, 0, region.width, region.height);
   return { image: canvas, rect: region };
+}
+
+/** 口元のコマと、それを並べた画像 */
+type FrameAtlas = { data: MouthFrames; image: HTMLImageElement };
+
+/** 口元のコマを読み込む。読み込めない場合は使わず、口は表情の画像(なければ元画像の変形)で表す */
+async function loadMouthFrames(manifest: AvatarManifest): Promise<FrameAtlas | null> {
+  if (!manifest.mouthFrames) return null;
+  try {
+    const response = await fetch(manifest.mouthFrames);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = mouthFramesSchema.parse(await response.json());
+    const rows = Math.ceil(data.frames.length / data.columns);
+    const image = await decodeImage(data.image);
+    if (image.naturalWidth < data.columns * data.rect.width || image.naturalHeight < rows * data.rect.height) {
+      throw new Error("コマを並べた画像の大きさが合いません");
+    }
+    return { data, image };
+  } catch (error) {
+    console.warn("avatar mouth frames could not be loaded", error);
+    return null;
+  }
 }
 
 async function decodeImage(src: string): Promise<HTMLImageElement> {
@@ -153,6 +179,9 @@ uniform sampler2D uMouthTexA;
 uniform sampler2D uMouthTexB;
 uniform vec4 uMouthRectA;
 uniform vec4 uMouthRectB;
+uniform vec4 uMouthUvA;
+uniform vec4 uMouthUvB;
+uniform vec2 uMouthCut;
 uniform float uMouthWA;
 uniform float uMouthWB;
 uniform vec4 uMouthEllipse;
@@ -262,10 +291,12 @@ float ellipseMask(vec2 q, vec4 e) {
   return 1.0 - smoothstep(0.6, 1.0, length((q - e.xy) / e.zw));
 }
 
-vec3 patchColor(sampler2D tex, vec4 rect, vec2 q, vec3 fallback) {
+// uvRect は、テクスチャの中で使う範囲(コマを並べた画像なら1コマ分。端の外側の画素を混ぜないよう半画素内側を読む)
+vec3 patchColor(sampler2D tex, vec4 rect, vec4 uvRect, vec2 q, vec3 fallback) {
   vec2 uv = (q - rect.xy) / rect.zw;
   if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) return fallback;
-  return texture2D(tex, uv).rgb;
+  uv = clamp(uv, 0.5 / rect.zw, 1.0 - 0.5 / rect.zw);
+  return texture2D(tex, uvRect.xy + uv * uvRect.zw).rgb;
 }
 
 void main() {
@@ -285,17 +316,18 @@ void main() {
 
   float mouthW = uMouthWA + uMouthWB;
   if (mouthW > 0.001) {
-    float m = ellipseMask(head, uMouthEllipse);
+    // 口元のコマでは、あごより下(首・襟。体の動きは頭と違う)は重ねない
+    float m = ellipseMask(head, uMouthEllipse) * (1.0 - smoothstep(uMouthCut.x - uMouthCut.y, uMouthCut.x + uMouthCut.y, head.y));
     if (m > 0.0) {
       vec3 mixed = color * (1.0 - mouthW)
-        + patchColor(uMouthTexA, uMouthRectA, head, color) * uMouthWA
-        + patchColor(uMouthTexB, uMouthRectB, head, color) * uMouthWB;
+        + patchColor(uMouthTexA, uMouthRectA, uMouthUvA, head, color) * uMouthWA
+        + patchColor(uMouthTexB, uMouthRectB, uMouthUvB, head, color) * uMouthWB;
       color = mix(color, mixed, m);
     }
   }
   if (uEyesW > 0.001) {
     float m = max(ellipseMask(head, uEyeEllipse0), ellipseMask(head, uEyeEllipse1));
-    if (m > 0.0) color = mix(color, patchColor(uEyesTex, uEyesRect, head, color), m * uEyesW);
+    if (m > 0.0) color = mix(color, patchColor(uEyesTex, uEyesRect, vec4(0.0, 0.0, 1.0, 1.0), head, color), m * uEyesW);
   }
   gl_FragColor = vec4(color, 1.0);
 }`;
@@ -305,7 +337,7 @@ const UNIFORMS = [
   "uEye0", "uEyeHalf0", "uEye1", "uEyeHalf1", "uMouth", "uMouthHalf", "uChin",
   "uPivot", "uHeadCenter", "uHeadRadii",
   "uOpen", "uWide", "uBlink", "uHeadRoll", "uHeadShift", "uNod", "uBreath",
-  "uMouthTexA", "uMouthTexB", "uMouthRectA", "uMouthRectB", "uMouthWA", "uMouthWB", "uMouthEllipse",
+  "uMouthTexA", "uMouthTexB", "uMouthRectA", "uMouthRectB", "uMouthUvA", "uMouthUvB", "uMouthCut", "uMouthWA", "uMouthWB", "uMouthEllipse",
   "uEyesTex", "uEyesRect", "uEyesW", "uEyeEllipse0", "uEyeEllipse1",
 ] as const;
 type UniformName = (typeof UNIFORMS)[number];
@@ -317,24 +349,34 @@ type GpuResources = {
   image: WebGLTexture | null;
   mouth: Map<MouthImageKey, WebGLTexture | null>;
   blink: WebGLTexture | null;
+  frames: WebGLTexture | null;
 };
 
-/** 口の形の画像を割り当てるテクスチャの番号(0 は元画像、3 は目を閉じた画像) */
+/** 口の形の画像・口元のコマを割り当てるテクスチャの番号(0 は元画像、3 は目を閉じた画像) */
 const MOUTH_UNITS = [1, 2] as const;
 const EYES_UNIT = 3;
+/** 口元のコマでは、あご先からこの割合(唇からあご先までの長さに対する)より下を重ねない */
+const FRAME_CUT_BELOW_CHIN = 0.1;
+const FRAME_CUT_FEATHER = 0.15;
+/** シェーダーの mouthInverse で、uOpen = 1 のときにあご先が下がる量(口の幅の半分に対する割合) */
+const JAW_DROP_PER_OPEN = 0.62 * 0.78;
 
 class WebGlSurface implements AvatarSurface {
   readonly animated = true;
   readonly mouthImageKeys: readonly MouthImageKey[];
+  readonly mouthFrames: MouthFrames | null;
   private gl: WebGLRenderingContext;
   private uniforms = {} as Record<UniformName, WebGLUniformLocation | null>;
   private resources: GpuResources | null = null;
   private lost = false;
 
-  static create(canvas: HTMLCanvasElement, image: HTMLCanvasElement, rig: FaceRig, expressions: Expressions): WebGlSurface | null {
+  static create(canvas: HTMLCanvasElement, image: HTMLCanvasElement, rig: FaceRig, expressions: Expressions, frames: FrameAtlas | null): WebGlSurface | null {
     const gl = canvas.getContext("webgl", { alpha: false, antialias: false, premultipliedAlpha: false });
     if (!gl) return null;
-    const surface = new WebGlSurface(canvas, gl, image, rig, expressions);
+    // コマを並べた画像が GPU で扱える大きさを超える場合は使わない
+    const maxSize = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
+    const usable = frames && frames.image.naturalWidth <= maxSize && frames.image.naturalHeight <= maxSize ? frames : null;
+    const surface = new WebGlSurface(canvas, gl, image, rig, expressions, usable);
     return surface.init() ? surface : null;
   }
 
@@ -344,9 +386,11 @@ class WebGlSurface implements AvatarSurface {
     private readonly image: HTMLCanvasElement,
     private readonly rig: FaceRig,
     private readonly expressions: Expressions,
+    private readonly frames: FrameAtlas | null,
   ) {
     this.gl = gl;
     this.mouthImageKeys = [...expressions.mouth.keys()];
+    this.mouthFrames = frames?.data ?? null;
     canvas.addEventListener("webglcontextlost", this.onLost);
     canvas.addEventListener("webglcontextrestored", this.onRestored);
   }
@@ -386,6 +430,7 @@ class WebGlSurface implements AvatarSurface {
     const { mouth, blink, mouthEllipse, eyeEllipses } = this.expressions;
     const blinkTexture = blink ? createTexture(gl, EYES_UNIT, blink.image) : null;
     const mouthTextures = new Map([...mouth].map(([key, expression]) => [key, createTexture(gl, MOUTH_UNITS[0], expression.image)]));
+    const framesTexture = this.frames ? createTexture(gl, MOUTH_UNITS[0], this.frames.image) : null;
     // 元画像は最後に作り、どのテクスチャ番号にも元画像を割り当てておく(使わない番号の読み込み先)
     const image = createTexture(gl, 0, this.image);
     for (const unit of [...MOUTH_UNITS, ...(blinkTexture ? [] : [EYES_UNIT])]) {
@@ -396,7 +441,7 @@ class WebGlSurface implements AvatarSurface {
       gl.activeTexture(gl.TEXTURE0 + EYES_UNIT);
       gl.bindTexture(gl.TEXTURE_2D, blinkTexture);
     }
-    this.resources = { program, shaders: [vertex, fragment], buffer, image, mouth: mouthTextures, blink: blinkTexture };
+    this.resources = { program, shaders: [vertex, fragment], buffer, image, mouth: mouthTextures, blink: blinkTexture, frames: framesTexture };
 
     for (const name of UNIFORMS) this.uniforms[name] = gl.getUniformLocation(program, name);
     const u = this.uniforms;
@@ -433,12 +478,17 @@ class WebGlSurface implements AvatarSurface {
     const u = this.uniforms;
     const unit = this.rig.unit;
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    // 表情の画像がある場合も、元画像の口を pose の値だけ開き、その上に画像を重ねる(重ね合わせの途中を自然に見せる)
-    gl.uniform1f(u.uOpen, pose.mouthOpen);
-    gl.uniform1f(u.uWide, pose.mouthWide);
-    const usable = pose.mouthImages.filter((w) => this.resources!.mouth.has(w.key));
-    this.bindMouth(0, usable[0]);
-    this.bindMouth(1, usable[1]);
+    if (pose.mouthFrames && this.frames && this.resources.frames) {
+      this.bindFrames(pose.mouthFrames, this.frames.data, this.resources.frames);
+    } else {
+      // 表情の画像がある場合も、元画像の口を pose の値だけ開き、その上に画像を重ねる(重ね合わせの途中を自然に見せる)
+      gl.uniform1f(u.uOpen, pose.mouthOpen);
+      gl.uniform1f(u.uWide, pose.mouthWide);
+      gl.uniform2f(u.uMouthCut, 1e5, 1);
+      const usable = pose.mouthImages.filter((w) => this.resources!.mouth.has(w.key));
+      this.bindMouth(0, usable[0]);
+      this.bindMouth(1, usable[1]);
+    }
     const blinkImage = this.resources.blink !== null;
     gl.uniform1f(u.uBlink, blinkImage ? 0 : pose.blink);
     gl.uniform1f(u.uEyesW, blinkImage ? pose.blink : 0);
@@ -461,6 +511,39 @@ class WebGlSurface implements AvatarSurface {
     if (expression) {
       const { x, y, width, height } = expression.rect;
       gl.uniform4f(slot === 0 ? u.uMouthRectA : u.uMouthRectB, x, y, width, height);
+      gl.uniform4f(slot === 0 ? u.uMouthUvA : u.uMouthUvB, 0, 0, 1, 1);
+    }
+  }
+
+  /**
+   * 口元のコマ from と to を、mix の割合で重ねる(全体の濃さは weight)。
+   * 元画像のあごもコマと同じだけ下げ、重ねる範囲の縁(あごの下)でずれないようにする。
+   */
+  private bindFrames(blend: MouthFrameBlend, data: MouthFrames, texture: WebGLTexture) {
+    const gl = this.gl;
+    const u = this.uniforms;
+    const { rect, columns } = data;
+    const texWidth = this.frames!.image.naturalWidth;
+    const texHeight = this.frames!.image.naturalHeight;
+    const cell = (index: number): [number, number, number, number] => [
+      ((index % columns) * rect.width) / texWidth,
+      (Math.floor(index / columns) * rect.height) / texHeight,
+      rect.width / texWidth,
+      rect.height / texHeight,
+    ];
+    const rig = this.rig;
+    const jaw = Math.max(0, blend.jaw) * blend.weight;
+    gl.uniform1f(u.uOpen, clamp01(jaw / (JAW_DROP_PER_OPEN * rig.mouthHalfWidth)));
+    gl.uniform1f(u.uWide, 0);
+    const chinY = rig.mouthCenter.y + rig.chinDistance;
+    gl.uniform2f(u.uMouthCut, chinY + jaw + rig.chinDistance * FRAME_CUT_BELOW_CHIN, rig.chinDistance * FRAME_CUT_FEATHER);
+    for (const slot of [0, 1] as const) {
+      const index = Math.min(slot === 0 ? blend.from : blend.to, data.frames.length - 1);
+      gl.activeTexture(gl.TEXTURE0 + MOUTH_UNITS[slot]);
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.uniform1f(slot === 0 ? u.uMouthWA : u.uMouthWB, (slot === 0 ? 1 - blend.mix : blend.mix) * blend.weight);
+      gl.uniform4f(slot === 0 ? u.uMouthRectA : u.uMouthRectB, rect.x, rect.y, rect.width, rect.height);
+      gl.uniform4f(slot === 0 ? u.uMouthUvA : u.uMouthUvB, ...cell(index));
     }
   }
 
@@ -475,6 +558,7 @@ class WebGlSurface implements AvatarSurface {
     gl.deleteTexture(resources.image);
     resources.mouth.forEach((texture) => gl.deleteTexture(texture));
     gl.deleteTexture(resources.blink);
+    gl.deleteTexture(resources.frames);
     gl.deleteBuffer(resources.buffer);
     resources.shaders.forEach((shader) => gl.deleteShader(shader));
     gl.deleteProgram(resources.program);
@@ -482,7 +566,7 @@ class WebGlSurface implements AvatarSurface {
 }
 
 /** 画像を GPU に送る(指定した番号のテクスチャとして割り当てたままにする) */
-function createTexture(gl: WebGLRenderingContext, unit: number, source: HTMLCanvasElement): WebGLTexture | null {
+function createTexture(gl: WebGLRenderingContext, unit: number, source: HTMLCanvasElement | HTMLImageElement): WebGLTexture | null {
   const texture = gl.createTexture();
   gl.activeTexture(gl.TEXTURE0 + unit);
   gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -492,6 +576,10 @@ function createTexture(gl: WebGLRenderingContext, unit: number, source: HTMLCanv
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, source);
   return texture;
+}
+
+function clamp01(value: number): number {
+  return Math.min(1, Math.max(0, value));
 }
 
 function compile(gl: WebGLRenderingContext, type: number, source: string): WebGLShader | null {
@@ -510,6 +598,7 @@ function compile(gl: WebGLRenderingContext, type: number, source: string): WebGL
 class CanvasSurface implements AvatarSurface {
   readonly animated = false;
   readonly mouthImageKeys: readonly MouthImageKey[] = [];
+  readonly mouthFrames = null;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,

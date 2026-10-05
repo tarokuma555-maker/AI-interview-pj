@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AvatarBehavior, type AvatarInputs } from "@/features/avatar/behavior";
 import { LipSync } from "@/features/avatar/lip-sync";
 import { viewRect, type AvatarManifest } from "@/features/avatar/manifest";
+import { createMouthFramePlayer, type MouthFramePlayer } from "@/features/avatar/mouth-frames";
 import { MouthImageMixer } from "@/features/avatar/mouth-images";
 import { createAvatarSurface, type AvatarSurface } from "@/features/avatar/renderer";
 import { reducePose } from "@/features/avatar/rig";
@@ -31,6 +32,7 @@ export function AvatarView({ manifest, getInputs }: { manifest: AvatarManifest; 
     if (!canvas) return;
     let surface: AvatarSurface | null = null;
     let mixer = new MouthImageMixer([]);
+    let player: MouthFramePlayer | null = null;
     let frame = 0;
     let disposed = false;
     const lipSync = new LipSync();
@@ -59,8 +61,11 @@ export function AvatarView({ manifest, getInputs }: { manifest: AvatarManifest; 
       const inputs = inputsRef.current();
       const mouth = lipSync.update(inputs.voice, now, dt);
       const pose = behavior.update(now, { mode: inputs.mode, mouth, candidateVoice: inputs.candidateVoice });
-      pose.mouthImages = mixer.update(mouth, dt);
-      if (mixer.enabled) {
+      if (player) {
+        // 話している動画から作った口元のコマがあれば、それを再生する
+        pose.mouthFrames = player.update(mouth, dt);
+      } else if (mixer.enabled) {
+        pose.mouthImages = mixer.update(mouth, dt);
         // 口の形の画像があるときは、元画像の口を、重ねている画像に合わせて控えめに開く
         const shape = mixer.blendShape();
         pose.mouthOpen = shape.open * 0.7;
@@ -77,6 +82,11 @@ export function AvatarView({ manifest, getInputs }: { manifest: AvatarManifest; 
         }
         surface = created;
         mixer = new MouthImageMixer(created.mouthImageKeys);
+        try {
+          player = created.mouthFrames ? createMouthFramePlayer(created.mouthFrames) : null;
+        } catch (error) {
+          console.warn("avatar mouth frames could not be used", error);
+        }
         setState(created.animated ? "animated" : "static");
         draw();
       })

@@ -7,7 +7,7 @@ import { z } from "zod";
 
 const pointSchema = z.object({ x: z.number(), y: z.number() });
 const eyeSchema = z.object({ center: pointSchema, width: z.number().positive(), height: z.number().positive() });
-const rectSchema = z.object({ x: z.number(), y: z.number(), width: z.number().positive(), height: z.number().positive() });
+export const rectSchema = z.object({ x: z.number(), y: z.number(), width: z.number().positive(), height: z.number().positive() });
 
 /**
  * 表情の画像。rect を省略した場合は、元画像と同じ大きさ・同じ構図の画像として扱う。
@@ -46,6 +46,8 @@ export const avatarManifestSchema = z.object({
       blink: expressionImageSchema.optional(),
     })
     .optional(),
+  /** 話している動画から作った口元のコマの情報(JSON)の URL。あれば口は表情の画像の代わりにこれで動かす(mouth-frames.ts) */
+  mouthFrames: z.string().optional(),
 });
 
 export type Point = z.infer<typeof pointSchema>;
@@ -98,6 +100,8 @@ export const STANDARD_AVATAR: AvatarManifest = {
     },
     blink: { src: "/avatars/sato/blink.jpg", rect: { x: 460, y: 153, width: 115, height: 28 } },
   },
+  // 依頼者が画像生成AIで作った、この写真から話している動画(10秒)のコマ。読み込めない場合は上の表情の画像を使う
+  mouthFrames: "/avatars/sato/mouth-frames.json",
 };
 
 /** 試作版の仮の顔(public/avatars/placeholder/) */
