@@ -13,22 +13,22 @@ export type InterviewerModelConfig = {
   directAnswerHint: boolean;
 };
 
-/** 面接官のモデル(設計書 4.1)。どちらを使うかは開発ステップ2で実測して決める */
+/** 面接官のモデル(設計書 4.1)。標準は Opus 5.5(要件 11.4)。Sonnet 5.5 は検証ツールでの比較用に残す */
 export const INTERVIEWER_MODELS: Record<InterviewerModelKey, InterviewerModelConfig> = {
+  opus: {
+    id: process.env.AI_MODEL_INTERVIEWER_OPUS ?? "claude-opus-5-5",
+    label: "Claude Opus 5.5(標準・質重視)",
+    // Opus 5.5 は思考を無効にできないため省略(adaptive)し、effort を下げる
+    effort: "low",
+    directAnswerHint: true,
+  },
   sonnet: {
     id: process.env.AI_MODEL_INTERVIEWER_SONNET ?? "claude-sonnet-5-5",
-    label: "Claude Sonnet 5.5(速さ重視)",
+    label: "Claude Sonnet 5.5(比較用・速さ重視)",
     // Sonnet 5.5 で思考を行わない設定。effort は high 以下でのみ使える
     thinking: { type: "between_tools" },
     effort: "low",
     directAnswerHint: false,
-  },
-  opus: {
-    id: process.env.AI_MODEL_INTERVIEWER_OPUS ?? "claude-opus-5-5",
-    label: "Claude Opus 5.5(質重視)",
-    // Opus 5.5 は思考を無効にできないため省略(adaptive)し、effort を下げる
-    effort: "low",
-    directAnswerHint: true,
   },
 };
 

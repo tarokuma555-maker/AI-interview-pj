@@ -174,7 +174,7 @@ function defaultValues(config: PocConfig, saved: SetupValues | null, voiceGender
       stage: "first",
       style: "standard",
       durationMin: 5,
-      interviewerModel: config.interviewerModels[0]?.key ?? "sonnet",
+      interviewerModel: config.interviewerModels[0]?.key ?? "opus",
       // Azure の声は、アバターの性別に合う声を最初の選択にする
       voiceId: VOICES.find((v) => v.gender === voiceGender && config.voices.some((c) => c.id === v.id))?.id ?? config.voices[0]?.id ?? "female_a",
     },
@@ -187,7 +187,8 @@ function defaultValues(config: PocConfig, saved: SetupValues | null, voiceGender
   return {
     ...base,
     ...saved,
-    settings: { ...base.settings, ...saved.settings },
+    // 面接官のモデルは、前回の選択に関係なく標準(Opus 5.5)から始める
+    settings: { ...base.settings, ...saved.settings, interviewerModel: base.settings.interviewerModel },
     // 以前のサンプルのままなら、いまのサンプルに置き換える
     context: isPreviousSampleContext(saved.context) ? base.context : { ...base.context, ...saved.context },
     // 音声認識も、Google Cloud が使える場合は前回の選択に関係なく Google Cloud から始める

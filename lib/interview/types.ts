@@ -3,7 +3,7 @@ import { z } from "zod";
 export const STAGES = ["first", "second", "final"] as const;
 export const STYLES = ["gentle", "standard", "strict"] as const;
 export const DURATIONS = [5, 15, 30] as const;
-export const INTERVIEWER_MODEL_KEYS = ["sonnet", "opus"] as const;
+export const INTERVIEWER_MODEL_KEYS = ["opus", "sonnet"] as const;
 export const PHASES = ["opening", "main", "reverse_questions", "closing", "ended"] as const;
 
 export type Stage = (typeof STAGES)[number];
