@@ -2,6 +2,8 @@ import { summarize, type LatencyRecord } from "@/features/interview/client/laten
 
 const REASON_LABELS: Record<string, string> = {
   manual: "ボタン",
+  closing: "「以上です」",
+  silence: "10秒の沈黙",
   complete: "文末が完結",
   neutral: "無音",
   max_wait: "最大待ち時間",

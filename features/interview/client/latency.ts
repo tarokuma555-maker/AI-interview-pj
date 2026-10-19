@@ -3,7 +3,7 @@ import type { ServerLatency, UsageSummary } from "@/lib/interview/types";
 /** 1往復ぶんの応答時間の記録(設計書 3.10) */
 export type LatencyRecord = {
   turn: number;
-  /** 話し終わりと判定した理由(manual / complete / neutral / max_wait など) */
+  /** 話し終わりと判定した理由(manual / closing / silence / max_utterance など) */
   reason: string;
   /** t0→t1:最後の声から、回答を送るまで(話し終わりの判定にかかった時間) */
   detectMs: number | null;

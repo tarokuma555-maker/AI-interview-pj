@@ -5,50 +5,39 @@
 export type TurnDetectorParams = {
   /** これより短い発話は雑音とみなす */
   minSpeechMs: number;
-  /** 文末が完結した形のときの待ち時間 */
-  completeWaitMs: number;
-  /** 文末が完結とも続きそうとも言えないときの待ち時間 */
-  neutralWaitMs: number;
-  /** 文末の形にかかわらず、この時間黙ったら話し終わり */
-  maxWaitMs: number;
+  /** 「以上です」などの締めの言葉で終わってから、話し終わりとするまでの間(言い足すときのための余裕) */
+  closingWaitMs: number;
+  /** 締めの言葉がなくても、この時間黙ったら話し終わり */
+  silenceEndMs: number;
   /** 1回の発話の上限 */
   maxUtteranceMs: number;
 };
 
+/**
+ * 話の途中の間では回答を終えず、「以上です」などの締めの言葉か、10秒以上の沈黙で終える(依頼者の決定。要件 F-05-4)。
+ * 自己紹介(2〜3分)を区切らないよう、1回の発話の上限は5分にする。
+ */
 export const DEFAULT_TURN_PARAMS: TurnDetectorParams = {
   minSpeechMs: 300,
-  completeWaitMs: 800,
-  neutralWaitMs: 2500,
-  maxWaitMs: 5000,
-  maxUtteranceMs: 180_000,
+  closingWaitMs: 1000,
+  silenceEndMs: 10_000,
+  maxUtteranceMs: 300_000,
 };
 
-/** 面接官スタイルが「やさしい」のときは待ち時間を長くする */
-export function paramsForStyle(style: "gentle" | "standard" | "strict", base = DEFAULT_TURN_PARAMS): TurnDetectorParams {
-  if (style !== "gentle") return base;
-  return {
-    ...base,
-    completeWaitMs: base.completeWaitMs * 1.5,
-    neutralWaitMs: base.neutralWaitMs * 1.5,
-    maxWaitMs: base.maxWaitMs * 1.5,
-  };
-}
+/** 締めの言葉(句読点・空白を除いた文末)。「以上です。よろしくお願いいたします」のように続けた形も含める */
+const CLOSING = /以上(です|でございます|になります|となります)(よろしくお願い(いた)?します|よろしくお願い申し上げます)?$/;
+/**
+ * 「8年以上です」「3割以上です」のように、数や単位に続く「以上です」は締めの言葉ではない。
+ * 「以上」の直前がこれらの文字なら、話の途中とみなす
+ */
+const QUANTITY_BEFORE = /[0-9０-９一二三四五六七八九十百千万億年割件人名歳%％倍回日月週点円床社台分秒個本枚度期代間位級段]$/;
 
-export type Ending = "complete" | "incomplete" | "neutral";
-
-const COMPLETE_ENDING =
-  /(です|ます|でした|ました|ません|ませんでした|でしょう|ですか|ますか|でしょうか|ませんか|と思います|と考えています|と考えております|以上です|以上となります|ございます|ございました)$/;
-const INCOMPLETE_ENDING =
-  /(が|けど|けれど|けれども|ので|から|て|で|し|たり|とか|えー|ええと|えーと|えっと|あの|あのー|その|まあ|ですが|ますが|ですけど)$/;
-
-export function classifyEnding(text: string): Ending {
-  const trimmed = text.trim();
-  if (!trimmed) return "neutral";
-  if (/[、,]$/.test(trimmed)) return "incomplete";
-  const core = trimmed.replace(/[。.!?！？…\s]+$/, "");
-  if (INCOMPLETE_ENDING.test(core)) return "incomplete";
-  if (COMPLETE_ENDING.test(core)) return "complete";
-  return "neutral";
+/** 回答が締めの言葉で終わっているか */
+export function endsWithClosing(text: string): boolean {
+  const core = text.replace(/[\s、。,.!?！？…・「」]/g, "");
+  const match = CLOSING.exec(core);
+  if (!match) return false;
+  return !QUANTITY_BEFORE.test(core.slice(0, match.index));
 }
 
 export type TurnSignals = {
@@ -77,9 +66,7 @@ export function decideTurnEnd(s: TurnSignals, p: TurnDetectorParams): TurnDecisi
   if (s.totalVoiceMs < p.minSpeechMs) return { end: false };
 
   const silence = s.now - s.lastVoiceAt;
-  const ending = classifyEnding(s.text);
-  if (ending === "complete" && silence >= p.completeWaitMs) return { end: true, reason: "complete" };
-  if (ending === "neutral" && silence >= p.neutralWaitMs) return { end: true, reason: "neutral" };
-  if (silence >= p.maxWaitMs) return { end: true, reason: "max_wait" };
+  if (endsWithClosing(s.text) && silence >= p.closingWaitMs) return { end: true, reason: "closing" };
+  if (silence >= p.silenceEndMs) return { end: true, reason: "silence" };
   return { end: false };
 }

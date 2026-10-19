@@ -29,7 +29,7 @@ import { AzureStt } from "./stt/azure";
 import { GoogleCloudStt } from "./stt/google";
 import type { SttClient } from "./stt/types";
 import { WebSpeechStt } from "./stt/web-speech";
-import { decideTurnEnd, paramsForStyle, type TurnDetectorParams } from "./turn-detector";
+import { decideTurnEnd, DEFAULT_TURN_PARAMS } from "./turn-detector";
 import { EnergyVad } from "./vad";
 
 /**
@@ -197,7 +197,6 @@ export class InterviewController {
   private stt: SttClient | null = null;
   private speaker: Speaker | null = null;
   private vad = new EnergyVad();
-  private params: TurnDetectorParams = paramsForStyle("standard");
   private plan: QuestionPlan | null = null;
   private history: TurnRecord[] = [];
   private state: SessionState = INITIAL_SESSION_STATE;
@@ -248,7 +247,6 @@ export class InterviewController {
   /** 機器の準備と質問計画の生成(ボタン操作の中で呼ぶ) */
   async prepare(config: ControllerConfig) {
     this.config = config;
-    this.params = paramsForStyle(config.settings.style);
     this.update({ status: "preparing", message: "マイクを準備しています…", textMode: config.sttProvider === "text", sttFallback: null });
     try {
       this.context = new AudioContext();
@@ -702,7 +700,7 @@ export class InterviewController {
         text: this.currentText(),
         manualEnd: this.answer.manualEnd,
       },
-      this.params,
+      DEFAULT_TURN_PARAMS,
     );
     // 応答時間の計測は、文字起こしの遅れを含まない「実際に声が途切れた時刻」から測る
     const speechEndedAt = this.vad.lastVoiceTime ?? this.answer.lastPartialAt;

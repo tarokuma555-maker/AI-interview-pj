@@ -1,25 +1,27 @@
 import { describe, expect, it } from "vitest";
-import {
-  DEFAULT_TURN_PARAMS,
-  classifyEnding,
-  decideTurnEnd,
-  paramsForStyle,
-  type TurnSignals,
-} from "@/features/interview/client/turn-detector";
+import { DEFAULT_TURN_PARAMS, decideTurnEnd, endsWithClosing, type TurnSignals } from "@/features/interview/client/turn-detector";
 
-describe("classifyEnding", () => {
+describe("endsWithClosing", () => {
   it.each([
-    ["前職では法人営業を担当していました。", "complete"],
-    ["以上です", "complete"],
-    ["御社の強みは何でしょうか?", "complete"],
-    ["そう考えております。", "complete"],
-    ["前職では営業を担当していて、", "incomplete"],
-    ["売上を伸ばしたのですが", "incomplete"],
-    ["えーと", "incomplete"],
-    ["理由としては", "neutral"],
-    ["", "neutral"],
+    ["以上です", true],
+    ["前職では法人営業を担当していました。以上です。", true],
+    ["私からは以上です", true],
+    ["簡単ではございますが、以上となります。", true],
+    ["以上になります", true],
+    ["以上でございます。", true],
+    ["以上です。よろしくお願いいたします。", true],
+    ["以上です よろしくお願いします", true],
+    // 数や単位に続く「以上です」は話の途中
+    ["看護師の経験は8年以上です。", false],
+    ["売上は前年の3割以上です", false],
+    ["月に10件以上です", false],
+    ["1日8時間以上です", false],
+    // 間があっても、締めの言葉がなければ続く
+    ["前職では法人営業を担当していました。", false],
+    ["以上の経験から", false],
+    ["", false],
   ])("%s → %s", (text, expected) => {
-    expect(classifyEnding(text)).toBe(expected);
+    expect(endsWithClosing(text)).toBe(expected);
   });
 });
 
@@ -40,45 +42,38 @@ describe("decideTurnEnd", () => {
   });
 
   it("話している間は判定しない", () => {
-    expect(decideTurnEnd({ ...base, voiceActive: true }, p).end).toBe(false);
+    expect(decideTurnEnd({ ...base, voiceActive: true, now: base.lastVoiceAt! + 20_000 }, p).end).toBe(false);
   });
 
   it("文字起こしが空なら判定しない", () => {
-    expect(decideTurnEnd({ ...base, text: "" }, p).end).toBe(false);
+    expect(decideTurnEnd({ ...base, text: "", now: base.lastVoiceAt! + 20_000 }, p).end).toBe(false);
   });
 
   it("短すぎる発話は雑音とみなす", () => {
     expect(decideTurnEnd({ ...base, totalVoiceMs: 200, now: 20_000 }, p).end).toBe(false);
   });
 
-  it("文末が完結していれば 0.8 秒で話し終わり", () => {
-    expect(decideTurnEnd({ ...base, now: base.lastVoiceAt! + 700 }, p).end).toBe(false);
-    expect(decideTurnEnd({ ...base, now: base.lastVoiceAt! + 800 }, p)).toEqual({ end: true, reason: "complete" });
+  it("文が終わっていても、話の途中の間では終えない", () => {
+    expect(decideTurnEnd({ ...base, now: base.lastVoiceAt! + 5_000 }, p).end).toBe(false);
+    expect(decideTurnEnd({ ...base, text: "前職では営業を担当していて、", now: base.lastVoiceAt! + 9_900 }, p).end).toBe(false);
   });
 
-  it("文末が続きそうな形なら、最大待ち時間まで待つ", () => {
-    const signals = { ...base, text: "前職では営業を担当していて、" };
-    expect(decideTurnEnd({ ...signals, now: base.lastVoiceAt! + 4_000 }, p).end).toBe(false);
-    expect(decideTurnEnd({ ...signals, now: base.lastVoiceAt! + 5_000 }, p)).toEqual({ end: true, reason: "max_wait" });
+  it("「以上です」で終わったら、少し待って話し終わり(言い足す余裕を残す)", () => {
+    const signals = { ...base, text: "法人営業を担当していました。以上です。" };
+    expect(decideTurnEnd({ ...signals, now: base.lastVoiceAt! + 900 }, p).end).toBe(false);
+    expect(decideTurnEnd({ ...signals, now: base.lastVoiceAt! + 1_000 }, p)).toEqual({ end: true, reason: "closing" });
   });
 
-  it("どちらとも言えない文末は 2.5 秒で話し終わり", () => {
-    const signals = { ...base, text: "理由としては" };
-    expect(decideTurnEnd({ ...signals, now: base.lastVoiceAt! + 2_400 }, p).end).toBe(false);
-    expect(decideTurnEnd({ ...signals, now: base.lastVoiceAt! + 2_500 }, p)).toEqual({ end: true, reason: "neutral" });
+  it("「以上です」がなくても、10秒黙ったら話し終わり", () => {
+    expect(decideTurnEnd({ ...base, now: base.lastVoiceAt! + 9_999 }, p).end).toBe(false);
+    expect(decideTurnEnd({ ...base, now: base.lastVoiceAt! + 10_000 }, p)).toEqual({ end: true, reason: "silence" });
   });
 
-  it("発話の上限に達したら、話している途中でも区切る", () => {
-    expect(decideTurnEnd({ ...base, voiceActive: true, now: base.speechStartedAt! + 180_000 }, p)).toEqual({
+  it("発話の上限(5分)に達したら、話している途中でも区切る", () => {
+    expect(decideTurnEnd({ ...base, voiceActive: true, now: base.speechStartedAt! + 299_000 }, p).end).toBe(false);
+    expect(decideTurnEnd({ ...base, voiceActive: true, now: base.speechStartedAt! + 300_000 }, p)).toEqual({
       end: true,
       reason: "max_utterance",
     });
-  });
-
-  it("「やさしい」スタイルでは待ち時間を 1.5 倍にする", () => {
-    const gentle = paramsForStyle("gentle");
-    expect(gentle.completeWaitMs).toBe(1200);
-    expect(decideTurnEnd({ ...base, now: base.lastVoiceAt! + 1_000 }, gentle).end).toBe(false);
-    expect(paramsForStyle("strict")).toBe(DEFAULT_TURN_PARAMS);
   });
 });

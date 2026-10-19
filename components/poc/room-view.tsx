@@ -83,6 +83,9 @@ export function RoomView({
           <p className="text-lg font-semibold" role="status" aria-live="polite">
             {STATUS_LABELS[snap.status]}
           </p>
+          {!textMode && (snap.status === "listening" || snap.status === "answering") && (
+            <p className="text-center text-sm text-muted">話し終えたら「以上です」と言ってください(「回答を終える」でも終えられます)</p>
+          )}
           {snap.message && <p className="text-center text-sm text-danger">{snap.message}</p>}
         </div>
 
