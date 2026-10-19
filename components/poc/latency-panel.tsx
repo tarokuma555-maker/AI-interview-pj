@@ -11,7 +11,7 @@ const REASON_LABELS: Record<string, string> = {
   text: "テキスト",
 };
 
-/** 応答時間の計測結果(設計書 3.10)。目標は中央値 2.0秒以内、P95 3.0秒以内(要件 NF-P-01) */
+/** 応答時間の計測結果(設計書 3.10)。目標は中央値 3.0秒以内、P95 4.0秒以内(要件 NF-P-01。「以上です」のあとの約1秒の待ちを含む) */
 export function LatencyPanel({ records }: { records: LatencyRecord[] }) {
   if (records.length === 0) return null;
   const summary = summarize(records);
@@ -20,7 +20,7 @@ export function LatencyPanel({ records }: { records: LatencyRecord[] }) {
     <section className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
       <h2 className="font-bold">応答時間の計測</h2>
       <p className="text-sm">
-        話し終えてから面接官の声が聞こえ始めるまで:中央値 {sec(summary.median)}(目標 2.0秒以内)/ P95 {sec(summary.p95)}(目標 3.0秒以内)/ {summary.count}回
+        「以上です」と言い終えてから面接官の声が聞こえ始めるまで:中央値 {sec(summary.median)}(目標 3.0秒以内)/ P95 {sec(summary.p95)}(目標 4.0秒以内)/ {summary.count}回
       </p>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[640px] text-left text-sm">

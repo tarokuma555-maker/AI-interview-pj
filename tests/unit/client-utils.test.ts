@@ -56,9 +56,18 @@ describe("latency", () => {
     expect(percentile([3, 1, 2], 50)).toBe(2);
     expect(percentile([], 50)).toBeNull();
     const records = [1000, 2000, 3000, null].map(
-      (totalMs, i): LatencyRecord => ({ turn: i + 1, reason: "complete", detectMs: null, responseMs: null, totalMs, server: null, usage: null }),
+      (totalMs, i): LatencyRecord => ({ turn: i + 1, reason: "closing", detectMs: null, responseMs: null, totalMs, server: null, usage: null }),
     );
     expect(summarize(records)).toEqual({ count: 3, median: 2000, p95: 3000 });
+  });
+
+  it("「以上です」で終えた回答だけを数える(10秒の沈黙・ボタンは待ち時間が入るため除く)", () => {
+    const records = [
+      { reason: "closing", totalMs: 2500 },
+      { reason: "silence", totalMs: 12_000 },
+      { reason: "manual", totalMs: 6000 },
+    ].map((r, i): LatencyRecord => ({ turn: i + 1, detectMs: null, responseMs: null, server: null, usage: null, ...r }));
+    expect(summarize(records)).toEqual({ count: 1, median: 2500, p95: 2500 });
   });
 });
 

@@ -22,7 +22,14 @@ export function percentile(values: number[], p: number): number | null {
   return sorted[Math.min(sorted.length - 1, Math.max(0, rank))];
 }
 
+/**
+ * 要件 NF-P-01 の対象は「以上です」で終えた回答だけ。10秒の沈黙やボタンで終えた回答は、
+ * 最後の声からの時間に待ち時間や操作の時間が入るため数えない。
+ */
 export function summarize(records: LatencyRecord[]) {
-  const totals = records.map((r) => r.totalMs).filter((v): v is number => v !== null);
+  const totals = records
+    .filter((r) => r.reason === "closing")
+    .map((r) => r.totalMs)
+    .filter((v): v is number => v !== null);
   return { count: totals.length, median: percentile(totals, 50), p95: percentile(totals, 95) };
 }
