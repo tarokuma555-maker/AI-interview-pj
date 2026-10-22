@@ -3,6 +3,7 @@ import type { QuestionPlan } from "@/lib/ai/schemas/plan";
 import type { AnswerMetrics } from "@/lib/interview/speech-metrics";
 import type { CandidateContext, SessionSettings, SessionState, TurnEvent, TurnRecord } from "@/lib/interview/types";
 import type { GoogleVoice } from "@/lib/speech/google-voices";
+import type { InterviewerVoices } from "@/lib/speech/interviewer-voice";
 import type { VoiceRequest } from "@/lib/speech/tts/types";
 import type { TtsProvider } from "@/lib/speech/voices";
 import { NdjsonParser } from "./ndjson";
@@ -26,6 +27,8 @@ export type PocConfig = {
   googleStt: boolean;
   interviewerModels: { key: SessionSettings["interviewerModel"]; label: string }[];
   voices: { id: string; label: string }[];
+  /** 製品版の面接官の声(利用者は選ばない。要件 D-10) */
+  interviewerVoices: InterviewerVoices;
 };
 
 function headers(code: string): HeadersInit {

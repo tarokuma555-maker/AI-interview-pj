@@ -1,7 +1,8 @@
 "use client";
 
 import type { FeedbackState } from "@/features/interview/client/interview-controller";
-import { FEEDBACK_AXIS_LABELS } from "@/lib/ai/schemas/feedback";
+import type { FeedbackResult } from "@/features/interview/client/poc-api";
+import { FEEDBACK_AXIS_LABELS, type Feedback } from "@/lib/ai/schemas/feedback";
 import { QUESTION_CATEGORY_LABELS } from "@/lib/ai/schemas/plan";
 import { DELIVERY_TARGETS, judgeDelay, judgeLength, judgeRate, type AnswerMetrics, type Judgement } from "@/lib/interview/speech-metrics";
 
@@ -27,9 +28,8 @@ export function FeedbackView({ state, onRetry }: { state: FeedbackState; onRetry
   );
 }
 
-function FeedbackBody({ result }: { result: Extract<FeedbackState, { status: "done" }>["result"] }) {
+function FeedbackBody({ result }: { result: FeedbackResult }) {
   const { feedback, metrics } = result;
-  const metricsBySeq = new Map(metrics.map((m) => [m.turn_seq, m]));
 
   return (
     <>
@@ -51,25 +51,7 @@ function FeedbackBody({ result }: { result: Extract<FeedbackState, { status: "do
       {/* 2. 観点別評価 */}
       <div className="flex flex-col gap-3">
         <h3 className="font-bold">観点別評価(5段階)</h3>
-        <ul className="flex flex-col gap-3">
-          {feedback.axes.map((axis) => (
-            <li key={axis.key} className="flex flex-col gap-1">
-              <div className="flex items-center gap-3 text-sm">
-                <span className="w-40 shrink-0">{FEEDBACK_AXIS_LABELS[axis.key]}</span>
-                <span
-                  className="h-2 flex-1 overflow-hidden rounded-full bg-background"
-                  role="img"
-                  aria-label={`${FEEDBACK_AXIS_LABELS[axis.key]} 5段階中${axis.score}`}
-                  title={`${axis.score} / 5`}
-                >
-                  <span className="block h-full rounded-full bg-accent" style={{ width: `${(axis.score / 5) * 100}%` }} />
-                </span>
-                <span className="w-10 shrink-0 text-right font-semibold tabular-nums">{axis.score} / 5</span>
-              </div>
-              {axis.reason && <p className="text-sm text-muted">{axis.reason}</p>}
-            </li>
-          ))}
-        </ul>
+        <AxisList axes={feedback.axes} />
       </div>
 
       {/* 3. 良かった点・改善点 */}
@@ -84,51 +66,93 @@ function FeedbackBody({ result }: { result: Extract<FeedbackState, { status: "do
       {/* 5. 質問ごとの講評 */}
       <div className="flex flex-col gap-3">
         <h3 className="font-bold">質問ごとの講評</h3>
-        {feedback.answers.map((answer) => {
-          const m = metricsBySeq.get(answer.turn_seq);
-          return (
-            <article key={answer.turn_seq} className="flex flex-col gap-2 rounded-lg border border-border p-4 text-sm">
-              {m?.question && <p className="font-semibold">{m.isReverseQuestion ? "逆質問の場面" : "質問"}:{m.question}</p>}
-              <p className="text-muted">
-                {m?.isReverseQuestion ? "あなたの逆質問" : "あなたの回答"}:{m?.answer}
-              </p>
-              <p>
-                評価:<span className="font-semibold tabular-nums">{answer.rating} / 5</span>
-              </p>
-              <PointList title="良かった点" items={answer.good_points} compact />
-              <PointList title="改善点" items={answer.improvements} compact />
-              <div className="rounded-lg bg-background p-3">
-                <p className="mb-1 font-semibold">{m?.isReverseQuestion ? "より良い逆質問の例" : "改善後の回答例"}</p>
-                <p className="leading-relaxed">{answer.improved_answer}</p>
-                {answer.uses_assumed_content && (
-                  <p className="mt-1 text-xs text-muted">「(例)」の部分は、応募書類や回答にない内容を補った例です。ご自身の実際の経験に置き換えてください。</p>
-                )}
-              </div>
-            </article>
-          );
-        })}
+        <AnswerReviews result={result} />
       </div>
 
       {/* 6. 次回の練習課題 */}
       <div className="flex flex-col gap-2">
         <h3 className="font-bold">次回の練習課題</h3>
-        <ol className="flex flex-col gap-2 text-sm">
-          {feedback.next_actions.map((action, i) => (
-            <li key={i} className="rounded-lg border border-border p-3">
-              <p className="font-semibold">
-                {i + 1}. {action.title}
-                <span className="ml-2 text-xs font-normal text-muted">{QUESTION_CATEGORY_LABELS[action.category]}</span>
-              </p>
-              <p>{action.detail}</p>
-            </li>
-          ))}
-        </ol>
+        <NextActions actions={feedback.next_actions} />
       </div>
     </>
   );
 }
 
-function PointList({ title, items, ordered, compact }: { title: string; items: string[]; ordered?: boolean; compact?: boolean }) {
+/** 観点別評価(5段階)と根拠 */
+export function AxisList({ axes }: { axes: Feedback["axes"] }) {
+  return (
+    <ul className="flex flex-col gap-3">
+      {axes.map((axis) => (
+        <li key={axis.key} className="flex flex-col gap-1">
+          <div className="flex items-center gap-3 text-sm">
+            <span className="w-36 shrink-0 sm:w-40">{FEEDBACK_AXIS_LABELS[axis.key]}</span>
+            <span
+              className="h-2 flex-1 overflow-hidden rounded-full bg-background"
+              role="img"
+              aria-label={`${FEEDBACK_AXIS_LABELS[axis.key]} 5段階中${axis.score}`}
+              title={`${axis.score} / 5`}
+            >
+              <span className="block h-full rounded-full bg-accent" style={{ width: `${(axis.score / 5) * 100}%` }} />
+            </span>
+            <span className="w-10 shrink-0 text-right font-semibold tabular-nums">{axis.score} / 5</span>
+          </div>
+          {axis.reason && <p className="text-sm text-muted">{axis.reason}</p>}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** 質問ごとの講評(質問、自分の回答、5段階評価、良かった点、改善点、改善後の回答例) */
+export function AnswerReviews({ result }: { result: FeedbackResult }) {
+  const metricsBySeq = new Map(result.metrics.map((m) => [m.turn_seq, m]));
+  return (
+    <>
+      {result.feedback.answers.map((answer) => {
+        const m = metricsBySeq.get(answer.turn_seq);
+        return (
+          <article key={answer.turn_seq} className="flex flex-col gap-2 rounded-lg border border-border p-4 text-sm">
+            {m?.question && <p className="font-semibold">{m.isReverseQuestion ? "逆質問の場面" : "質問"}:{m.question}</p>}
+            <p className="text-muted">
+              {m?.isReverseQuestion ? "あなたの逆質問" : "あなたの回答"}:{m?.answer}
+            </p>
+            <p>
+              評価:<span className="font-semibold tabular-nums">{answer.rating} / 5</span>
+            </p>
+            <PointList title="良かった点" items={answer.good_points} compact />
+            <PointList title="改善点" items={answer.improvements} compact />
+            <div className="rounded-lg bg-background p-3">
+              <p className="mb-1 font-semibold">{m?.isReverseQuestion ? "より良い逆質問の例" : "改善後の回答例"}</p>
+              <p className="leading-relaxed">{answer.improved_answer}</p>
+              {answer.uses_assumed_content && (
+                <p className="mt-1 text-xs text-muted">「(例)」の部分は、応募書類や回答にない内容を補った例です。ご自身の実際の経験に置き換えてください。</p>
+              )}
+            </div>
+          </article>
+        );
+      })}
+    </>
+  );
+}
+
+/** 次回の練習課題(優先度の高い順に3つ) */
+export function NextActions({ actions }: { actions: Feedback["next_actions"] }) {
+  return (
+    <ol className="flex flex-col gap-2 text-sm">
+      {actions.map((action, i) => (
+        <li key={i} className="rounded-lg border border-border p-3">
+          <p className="font-semibold">
+            {i + 1}. {action.title}
+            <span className="ml-2 text-xs font-normal text-muted">{QUESTION_CATEGORY_LABELS[action.category]}</span>
+          </p>
+          <p>{action.detail}</p>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+export function PointList({ title, items, ordered, compact }: { title: string; items: string[]; ordered?: boolean; compact?: boolean }) {
   if (items.length === 0) return null;
   const List = ordered ? "ol" : "ul";
   return (
@@ -147,7 +171,7 @@ const LENGTH_LABELS: Record<Judgement, string> = { short: "短め", ok: "目安�
 const RATE_LABELS: Record<Judgement, string> = { short: "ゆっくり", ok: "目安どおり", long: "速め" };
 
 /** 回答ごとの回答時間・話す速さ・話し始めるまでの時間と、目安との比較(要件 F-07-5) */
-function DeliveryTable({ metrics }: { metrics: AnswerMetrics[] }) {
+export function DeliveryTable({ metrics }: { metrics: AnswerMetrics[] }) {
   const voiced = metrics.filter((m) => m.inputMode !== "text");
   if (voiced.length === 0) return null;
   const t = DELIVERY_TARGETS;

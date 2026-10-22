@@ -9,6 +9,8 @@
   --accent: #1f6feb;
   --accent-foreground: #ffffff;
   --danger: #cf222e;
+  --success: #1a7f37;
+  --accent-soft: #e8f0fe;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -21,6 +23,8 @@
     --accent: #4c8dff;
     --accent-foreground: #0f1115;
     --danger: #ff6b6b;
+    --success: #4ac26b;
+    --accent-soft: #1b2a44;
   }
 }
 
@@ -33,6 +37,8 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-accent-soft: var(--accent-soft);
   --font-sans: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", Meiryo, system-ui, sans-serif;
 }
 

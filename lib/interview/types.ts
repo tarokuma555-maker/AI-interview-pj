@@ -35,6 +35,8 @@ export const sessionSettingsSchema = z.object({
   voiceRate: z.number().min(0.8).max(1.2).optional(),
   /** 面接官の名前(アバターの名札と合わせる。なければ面接官は所属だけを名乗る) */
   interviewerName: z.string().trim().max(40).optional(),
+  /** 回答方法。文字で答える場合は、面接官が「以上です」を添えるようお願いしない */
+  answerBy: z.enum(["voice", "text"]).optional(),
 });
 export type SessionSettings = z.infer<typeof sessionSettingsSchema>;
 

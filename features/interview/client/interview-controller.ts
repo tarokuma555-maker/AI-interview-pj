@@ -246,7 +246,8 @@ export class InterviewController {
 
   /** 機器の準備と質問計画の生成(ボタン操作の中で呼ぶ) */
   async prepare(config: ControllerConfig) {
-    this.config = config;
+    // 回答方法を面接官に伝える(文字で答える場合は「以上です」をお願いしない)
+    this.config = { ...config, settings: { ...config.settings, answerBy: config.sttProvider === "text" ? "text" : "voice" } };
     this.update({ status: "preparing", message: "マイクを準備しています…", textMode: config.sttProvider === "text", sttFallback: null });
     try {
       this.context = new AudioContext();
@@ -333,6 +334,11 @@ export class InterviewController {
     if (this.snapshot.status === "listening" || this.snapshot.status === "answering") this.answer.manualEnd = true;
   }
 
+  /** イヤホンを使っているか(機器チェックで答えてもらう)。割り込みできるかが変わる(設計書 3.7) */
+  setEarphones(earphones: boolean) {
+    if (this.config) this.config = { ...this.config, earphones };
+  }
+
   /** テキストで回答する(マイクを使わない場合) */
   submitText(text: string) {
     const trimmed = text.trim();
@@ -401,7 +407,7 @@ export class InterviewController {
     this.stt = null;
     this.capture?.stop();
     this.capture = null;
-    this.config = { ...this.config, sttProvider: "text" };
+    this.config = { ...this.config, sttProvider: "text", settings: { ...this.config.settings, answerBy: "text" } };
     clearTimeout(this.timers.silence);
     const answering = this.snapshot.status === "answering";
     if (answering) {

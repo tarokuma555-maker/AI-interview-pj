@@ -22,6 +22,7 @@ export function renderSessionContext(
     `面接官スタイル: ${STYLE_LABELS[settings.style]}`,
     `予定時間: ${settings.durationMin}分`,
     `面接官の名前: ${settings.interviewerName?.trim() || "(指定なし)"}`,
+    `回答方法: ${settings.answerBy === "text" ? "文字の入力" : "音声"}`,
     "</面接設定>",
     "",
     "<求人情報>",
