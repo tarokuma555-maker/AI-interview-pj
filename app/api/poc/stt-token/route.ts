@@ -1,9 +1,11 @@
-import { checkPocAccess, jsonError } from "@/lib/poc/access";
+import { interviewAccess } from "@/lib/practice-link/access";
+import { jsonError } from "@/lib/poc/access";
 import { issueAzureSpeechToken } from "@/lib/speech/stt-token/azure";
 
 /** 音声認識の一時トークンを発行する(設計書 5.4)。APIキーそのものはブラウザに渡さない */
 export async function POST(request: Request) {
-  const denied = checkPocAccess(request);
+  const access = await interviewAccess(request);
+  const denied = access.denied;
   if (denied) return denied;
   try {
     const token = await issueAzureSpeechToken();

@@ -321,6 +321,20 @@ export class InterviewController {
 
   // ---- 面接の進行 ------------------------------------------------------------
 
+  /** 招待面接の開始記録を受け取り、以後はその練習の認証・設定を使う。 */
+  async usePracticeSession(accessCode: string, settings: SessionSettings, context: CandidateContext) {
+    if (!this.config || this.snapshot.status !== "ready") return;
+    const previous = this.config;
+    const changed = (Object.keys(context) as (keyof CandidateContext)[]).some(key => context[key] !== previous.context[key])
+      || settings.stage !== previous.settings.stage || settings.style !== previous.settings.style || settings.durationMin !== previous.settings.durationMin;
+    // 機器確認中に担当者が応募先を直した場合も、開始時点の内容に合わせる。
+    if (changed) {
+      this.plan = await fetchPlan(accessCode, settings, context);
+      this.update({ plan: this.plan });
+    }
+    this.config = { ...previous, accessCode, settings, context };
+  }
+
   start() {
     if (this.snapshot.status !== "ready" || !this.speaker) return;
     this.speaker.unlock();
@@ -357,7 +371,7 @@ export class InterviewController {
   /** 面接後の評価を作る(面接の終了時に自動で呼ぶ。失敗したら画面の「評価を作り直す」から呼ぶ) */
   async requestFeedback() {
     if (!this.config || this.snapshot.feedback.status === "loading") return;
-    if (!this.history.some((turn) => turn.speaker === "candidate")) {
+    if (!this.history.some((turn) => turn.speaker === "candidate") && !this.config.accessCode.startsWith("practice:")) {
       this.update({ feedback: { status: "no_answers" } });
       return;
     }

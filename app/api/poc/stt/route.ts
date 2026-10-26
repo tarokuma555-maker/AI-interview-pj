@@ -1,5 +1,6 @@
+import { interviewAccess } from "@/lib/practice-link/access";
 import { z } from "zod";
-import { checkPocAccess, jsonError, readJson } from "@/lib/poc/access";
+import { jsonError, readJson } from "@/lib/poc/access";
 import { googleSttApiKey, GoogleSttUnavailableError, recognizeGoogle, STT_SAMPLE_RATE } from "@/lib/speech/stt/google";
 
 /** 1回に送れる音声の長さの上限(Google の同期認識の上限は1分) */
@@ -13,7 +14,8 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const denied = checkPocAccess(request);
+  const access = await interviewAccess(request);
+  const denied = access.denied;
   if (denied) return denied;
 
   const apiKey = googleSttApiKey();

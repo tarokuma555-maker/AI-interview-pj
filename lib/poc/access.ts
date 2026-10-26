@@ -39,7 +39,7 @@ const LIMITS: Record<string, number> = {
 };
 const hits = new Map<string, number[]>();
 
-function checkRateLimit(request: Request): Response | null {
+export function checkRateLimit(request: Request): Response | null {
   const path = new URL(request.url).pathname;
   const limit = LIMITS[path];
   if (!limit) return null;

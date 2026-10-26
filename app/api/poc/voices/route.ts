@@ -1,10 +1,12 @@
-import { checkPocAccess, jsonError } from "@/lib/poc/access";
+import { interviewAccess } from "@/lib/practice-link/access";
+import { jsonError } from "@/lib/poc/access";
 import { isGoogleTtsConfigured } from "@/lib/speech/tts";
 import { listGoogleVoices } from "@/lib/speech/tts/google";
 
 /** Google Cloud の音声合成で使える日本語の声の一覧(設定画面で選ぶため) */
 export async function GET(request: Request) {
-  const denied = checkPocAccess(request);
+  const access = await interviewAccess(request);
+  const denied = access.denied;
   if (denied) return denied;
   if (!isGoogleTtsConfigured()) return jsonError(400, "TTS_UNAVAILABLE", "Google Cloud の音声合成が設定されていません");
 

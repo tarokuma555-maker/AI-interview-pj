@@ -1,3 +1,5 @@
+import { interviewerVoices } from "@/lib/speech/interviewer-voice";
+import { interviewAccess } from "@/lib/practice-link/access";
 import { after } from "next/server";
 import { z } from "zod";
 import { ClaudeInterviewer } from "@/lib/ai/interviewer";
@@ -7,7 +9,7 @@ import { isMockAi } from "@/lib/ai/models";
 import { generateQuestionPlan } from "@/lib/ai/plan";
 import { renderSessionContext } from "@/lib/ai/session-context";
 import { candidateContextSchema, sessionSettingsSchema } from "@/lib/interview/types";
-import { checkPocAccess, jsonError, readJson } from "@/lib/poc/access";
+import { jsonError, readJson } from "@/lib/poc/access";
 
 export const maxDuration = 120;
 
@@ -15,7 +17,8 @@ const bodySchema = z.object({ settings: sessionSettingsSchema, context: candidat
 
 /** 質問計画を生成する(設計書 4.5)。生成後、面接官のプロンプトキャッシュを事前に作成する */
 export async function POST(request: Request) {
-  const denied = checkPocAccess(request);
+  const access = await interviewAccess(request);
+  const denied = access.denied;
   if (denied) return denied;
 
   let body: z.infer<typeof bodySchema>;
@@ -23,6 +26,12 @@ export async function POST(request: Request) {
     body = bodySchema.parse(await readJson(request, 200_000));
   } catch {
     return jsonError(400, "INVALID_REQUEST", "入力内容が正しくありません");
+  }
+
+  if (access.target) {
+    const source = access.session ?? access.target;
+    body.settings = { ...source.settings, voiceId: (await interviewerVoices()).google ?? "", answerBy: access.session?.settings.answerBy ?? (body.settings.answerBy === "text" ? "text" : "voice") };
+    body.context = source.context;
   }
 
   if (isMockAi()) {

@@ -1,6 +1,9 @@
+import { interviewerVoices } from "@/lib/speech/interviewer-voice";
+import { isMockAi } from "@/lib/ai/models";
+import { interviewAccess } from "@/lib/practice-link/access";
 import { z } from "zod";
-import { checkPocAccess, jsonError, readJson } from "@/lib/poc/access";
-import { getTtsClient } from "@/lib/speech/tts";
+import { jsonError, readJson } from "@/lib/poc/access";
+import { getTtsClient, isGoogleTtsConfigured } from "@/lib/speech/tts";
 
 /** 定型フレーズ(設計書 3.8)や機器チェックのテスト音声を合成する */
 const bodySchema = z.object({
@@ -12,7 +15,8 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const denied = checkPocAccess(request);
+  const access = await interviewAccess(request);
+  const denied = access.denied;
   if (denied) return denied;
 
   let body: z.infer<typeof bodySchema>;
@@ -20,6 +24,14 @@ export async function POST(request: Request) {
     body = bodySchema.parse(await readJson(request, 10_000));
   } catch {
     return jsonError(400, "INVALID_REQUEST", "入力内容が正しくありません");
+  }
+
+  if (access.target) {
+    body.voiceId = (await interviewerVoices()).google ?? "";
+    body.provider = isGoogleTtsConfigured() ? "google" : "mock";
+    if (body.provider === "mock" && !isMockAi()) return jsonError(400,"TTS_UNAVAILABLE","音声を準備できませんでした");
+    body.pitch = undefined;
+    body.rate = undefined;
   }
 
   try {

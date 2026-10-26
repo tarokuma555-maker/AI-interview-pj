@@ -5,8 +5,9 @@ import { summarizeLinks, summarizeSeekers } from "./summary";
 import type { AgentRepo, PracticeLink, Seeker, SessionRow } from "./types";
 export type MemoryData = { seekers: Seeker[]; links: (PracticeLink & { keyHash: string })[]; sessions: SessionRow[] };
 const globals = globalThis as typeof globalThis & { agentData?: MemoryData };
+export function memoryData(): MemoryData { return globals.agentData ??= { seekers: [], links: [], sessions: [] }; }
 /** 設計 2026-10-27 8章。開発用でも担当の境界と削除時の連動を守る。 */
-export function createMemoryRepo(agent: Agent, store: MemoryData = globals.agentData ??= { seekers: [], links: [], sessions: [] }): AgentRepo {
+export function createMemoryRepo(agent: Agent, store: MemoryData = memoryData()): AgentRepo {
   const owns = (id: string) => store.seekers.find(s => s.id === id && (s.advisorId === agent.id || agent.role === "admin"));
   const getLink = (sid: string, id: string) => owns(sid) ? store.links.find(l => l.seekerId === sid && l.id === id) : undefined;
   const publicLink = ({ keyHash: _hash, ...link }: MemoryData["links"][number]) => { void _hash; return link; };

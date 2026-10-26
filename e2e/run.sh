@@ -28,9 +28,9 @@ NEXT_PUBLIC_SUPABASE_URL= NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY= VERCEL_ENV=previ
 SERVER=$!
 for _ in $(seq 1 30); do curl -s -o /dev/null http://localhost:3100/ && break; sleep 1; done
 STATUS=0
-node "$E2E/product.mjs" || STATUS=1
-node "$E2E/mic-denied.mjs" || STATUS=1
-node "$E2E/history-retry.mjs" || STATUS=1
-node "$E2E/agent-login.mjs" || STATUS=1
-node "$E2E/agent-seekers.mjs" || STATUS=1
+for test in product mic-denied history-retry agent-login agent-seekers practice-link; do
+  if [ -z "${E2E_ONLY:-}" ] || [ "$E2E_ONLY" = "$test" ]; then
+    node "$E2E/$test.mjs" || STATUS=1
+  fi
+done
 exit $STATUS

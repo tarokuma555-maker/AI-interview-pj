@@ -1,3 +1,5 @@
+import { interviewerVoices } from "@/lib/speech/interviewer-voice";
+import { interviewAccess } from "@/lib/practice-link/access";
 import { z } from "zod";
 import { ClaudeInterviewer } from "@/lib/ai/interviewer";
 import { MockInterviewer } from "@/lib/ai/mock";
@@ -11,8 +13,8 @@ import {
   sessionStateSchema,
   turnRecordSchema,
 } from "@/lib/interview/types";
-import { checkPocAccess, jsonError, readJson } from "@/lib/poc/access";
-import { getTtsClient } from "@/lib/speech/tts";
+import { jsonError, readJson } from "@/lib/poc/access";
+import { getTtsClient, isGoogleTtsConfigured } from "@/lib/speech/tts";
 import { TTS_PROVIDERS } from "@/lib/speech/voices";
 
 export const maxDuration = 60;
@@ -42,7 +44,8 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const denied = checkPocAccess(request);
+  const access = await interviewAccess(request);
+  const denied = access.denied;
   if (denied) return denied;
 
   let body: z.infer<typeof bodySchema>;
@@ -50,6 +53,15 @@ export async function POST(request: Request) {
     body = bodySchema.parse(await readJson(request, 1_000_000));
   } catch {
     return jsonError(400, "INVALID_REQUEST", "入力内容が正しくありません");
+  }
+
+  if (access.target) {
+    const source = access.session ?? access.target;
+    body.settings = { ...source.settings, voiceId: (await interviewerVoices()).google ?? "", answerBy: access.session?.settings.answerBy ?? (body.settings.answerBy === "text" ? "text" : "voice") };
+    body.context = source.context;
+    // 初回は既存エンジンの開始判定に合わせる。2往復目以降は保存済みの開始時刻を使う。
+    body.state.startedAt = body.kind === "start" ? null : Date.parse(access.session!.startedAt);
+    body.ttsProvider = isGoogleTtsConfigured() ? "google" : isMockAi() ? "mock" : "browser";
   }
 
   let tts;

@@ -31,11 +31,15 @@ export type PocConfig = {
   interviewerVoices: InterviewerVoices;
 };
 
-function headers(code: string): HeadersInit {
+export function headers(code: string): HeadersInit {
+  if (code.startsWith("practice:")) {
+    const [, key, sessionId] = code.split(":");
+    return { "Content-Type": "application/json", "x-practice-link": key, ...(sessionId ? { "x-practice-session": sessionId } : {}) };
+  }
   return { "Content-Type": "application/json", "x-poc-code": code };
 }
 
-async function toApiError(response: Response): Promise<ApiError> {
+export async function toApiError(response: Response): Promise<ApiError> {
   const body = (await response.json().catch(() => null)) as { error?: { message?: string; retryable?: boolean; code?: string } } | null;
   return new ApiError(
     body?.error?.message ?? `通信に失敗しました(${response.status})`,
@@ -86,6 +90,10 @@ export async function fetchFeedback(
   code: string,
   body: { settings: SessionSettings; context: CandidateContext; plan: QuestionPlan | null; history: TurnRecord[] },
 ): Promise<FeedbackResult> {
+  if (code.startsWith("practice:")) {
+    const { finishPractice } = await import("@/features/practice/api");
+    return finishPractice(code, body.history, body.plan);
+  }
   const history = body.history.map((turn) => ({ ...turn, llmContent: undefined, sentences: undefined }));
   const response = await fetch("/api/poc/feedback", { method: "POST", headers: headers(code), body: JSON.stringify({ ...body, history }) });
   if (!response.ok) throw await toApiError(response);

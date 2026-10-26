@@ -28,7 +28,7 @@ export function createSupabaseRepo(client: SupabaseClient, agent: Agent): AgentR
     const rows = checked(await query) ?? [];
     return rows.map(r => {
       const evaluation = Array.isArray(r.evaluations) ? r.evaluations[0] : r.evaluations;
-      const score = evaluation?.status === "done" ? evaluation.result?.overall_score : null;
+      const score = evaluation?.status === "done" ? (evaluation.result?.feedback?.overall_score ?? evaluation.result?.overall_score) : null;
       return { id: r.id, linkId: r.link_id, seekerId: r.seeker_id, startedAt: r.started_at, score: typeof score === "number" && Number.isFinite(score) ? score : null };
     });
   }

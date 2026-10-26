@@ -1,10 +1,11 @@
+import { interviewAccess } from "@/lib/practice-link/access";
 import { z } from "zod";
 import { generateFeedback, NoAnswerError } from "@/lib/ai/feedback";
 import { mockFeedback } from "@/lib/ai/mock";
 import { isMockAi } from "@/lib/ai/models";
 import { questionPlanSchema } from "@/lib/ai/schemas/plan";
 import { candidateContextSchema, sessionSettingsSchema, turnRecordSchema } from "@/lib/interview/types";
-import { checkPocAccess, jsonError, readJson } from "@/lib/poc/access";
+import { jsonError, readJson } from "@/lib/poc/access";
 
 /** 評価は質を重視して時間をかけるため、長めに待てるようにする(目標は60秒以内。要件 NF-P-05) */
 export const maxDuration = 300;
@@ -19,7 +20,8 @@ const bodySchema = z.object({
 
 /** 面接後の評価・フィードバックを生成する(設計書 4.6) */
 export async function POST(request: Request) {
-  const denied = checkPocAccess(request);
+  const access = await interviewAccess(request);
+  const denied = access.denied;
   if (denied) return denied;
 
   let body: z.infer<typeof bodySchema>;

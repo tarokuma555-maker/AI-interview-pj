@@ -16,6 +16,7 @@ const VOICE_HITS = 3;
  */
 export function CheckStep({
   controller,
+  beginDisabled = false,
   earphones,
   onEarphones,
   onBegin,
@@ -24,6 +25,7 @@ export function CheckStep({
   onBack,
 }: {
   controller: InterviewController;
+  beginDisabled?: boolean;
   earphones: boolean;
   onEarphones: (earphones: boolean) => void;
   onBegin: () => void;
@@ -145,7 +147,7 @@ export function CheckStep({
         />
       )}
 
-      <PrimaryButton onClick={onBegin} disabled={voice && !heard}>
+      <PrimaryButton onClick={onBegin} disabled={beginDisabled || (voice && !heard)}>
         面接を始める
       </PrimaryButton>
       {voice && !heard && <p className="-mt-3 text-center text-sm text-muted">声が届いたことを確かめると、始められます</p>}
