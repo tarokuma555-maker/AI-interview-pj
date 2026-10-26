@@ -1,0 +1,12 @@
+{
+  "name": "ai-interview-e2e",
+  "private": true,
+  "type": "module",
+  "description": "ブラウザで画面を通しで動かす確認(アプリ本体とは別に入れる。e2e/README.md)",
+  "scripts": {
+    "test": "bash run.sh"
+  },
+  "dependencies": {
+    "playwright": "1.56.1"
+  }
+}

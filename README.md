@@ -8,6 +8,7 @@
 
 ## ドキュメント
 
+- [引き継ぎ書](docs/handoff.md)(いまの状態・作業の決まり・次にやること)
 - [要件定義書](docs/requirements.md)
 - [基本設計書](docs/design.md)
 
@@ -90,12 +91,15 @@ npm run lint        # ESLint
 npm run typecheck   # TypeScript の型チェック
 npm test            # 単体テスト(Vitest)
 npm run build       # 本番ビルド
+cd e2e && npm test  # ブラウザでの通しの確認(e2e/README.md)
 ```
 
 ## ディレクトリ構成(主要部分)
 
 ```text
-app/poc/                         試作版の画面
+app/(app)/、components/app/      製品版(先行版)の求職者向けの画面
+features/app/                    求職者向けの画面の処理(ブラウザへの保存・面接の設定・画面の言葉・招待)
+app/poc/                         試作版の画面(管理者向けの検証ツール)
 app/api/poc/                     試作版の API(質問計画・面接官の応答・音声認識トークン・音声合成)
 components/poc/                  試作版の画面部品
 features/interview/client/       ブラウザ側の音声処理(状態管理・マイク入力・話し終わりの判定・再生)
@@ -104,4 +108,5 @@ lib/interview/turn-engine.ts     会話の1往復を処理するターンエン�
 lib/ai/                          Claude の呼び出し・プロンプト・質問計画
 lib/speech/                      音声合成・音声認識トークンのアダプター
 tests/unit/                      単体テスト
+e2e/                             ブラウザでの通しの確認(模擬サーバーと AI の固定の文面を使う)
 ```
