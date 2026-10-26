@@ -143,17 +143,26 @@ export function TextInput({
   onChange,
   placeholder,
   maxLength,
+  type = "text",
+  inputMode,
+  autoComplete,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   maxLength: number;
+  type?: "text" | "email";
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  autoComplete?: string;
 }) {
   return (
     <label className="flex flex-col gap-2">
       <span className="font-bold">{label}</span>
       <input
+        type={type}
+        inputMode={inputMode}
+        autoComplete={autoComplete}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}

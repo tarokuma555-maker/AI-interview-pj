@@ -32,6 +32,7 @@ npm run dev                  # http://localhost:3000/join#<POC_ACCESS_CODE の�
 | `GOOGLE_STT_API_KEY` | | 音声認識だけ別の API キーを使う場合に設定する(未設定なら `GOOGLE_TTS_API_KEY` を使う) |
 | `AZURE_SPEECH_KEY` / `AZURE_SPEECH_REGION` | | Azure AI Speech(音声認識・音声合成)。未設定でもブラウザ標準の音声認識・読み上げで試せる |
 | `INTERVIEWER_VOICE_ID` | | 製品版の面接官の声(Google Cloud の声の名前。例:`ja-JP-Chirp3-HD-Charon`)。未設定なら男性の Chirp 3 HD の声のうち一覧の先頭を使う。検証ツールの「声を試す」で選んだ声を入れる |
+| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | | Supabase のプロジェクトの URL と公開用のキー。エージェントのログインとデータの保存に使う。未設定なら開発用の方式(サーバーのメモリに置き、ログインの確認コードを画面に出す)で動く。本番では必ず設定する |
 
 ## 製品版(先行版)の使い方
 
@@ -43,6 +44,14 @@ npm run dev                  # http://localhost:3000/join#<POC_ACCESS_CODE の�
 6. ホームから、練習の記録・応募先(求人票の貼り付け)・職種と経歴・設定(面接官の話す速さ、字幕、データの削除)・困ったとき(よくある質問)を開ける。
 
 音声認識・音声合成・AIモデル・面接官の顔と声は利用者に選ばせず、使えるものの中から決まった順に選ぶ(Google Cloud → ブラウザ標準など。面接官は Claude Opus 5.5 の佐藤 健一)。
+
+## エージェントの画面(作成中)
+
+エージェントが求職者と応募先を登録し、求職者×応募先ごとの招待リンクを作って送る画面(設計:`docs/superpowers/specs/2026-10-27-agent-invite-design.md`)。いまはログインまでできる。
+
+1. `/agent` を開くと、ログインの画面に移る。登録されているメールアドレスを入れると、ログインのリンクと6桁の確認コードが書かれたメールが届く。
+2. Supabase を設定していない手元の環境では、メールは送らず、確認コードを画面に出す(どのメールアドレスでもログインできる)。
+3. エージェントは、管理者が Supabase の画面(Authentication → Users → Invite user)で招待する。データベースの定義は `supabase/migrations/`、メールの文面は `supabase/templates/`(本番のプロジェクトには、ダッシュボードの Authentication → Emails に同じ文面を貼る)。
 
 ## 検証ツール(試作版)の使い方
 
