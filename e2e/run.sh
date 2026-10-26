@@ -1,16 +1,30 @@
 #!/bin/bash
 # 模擬サーバー(Google の代わり)と、AI を固定の文面にしたアプリを立ち上げて、画面を通しで確かめる。
 # 先にリポジトリのルートで npm run build を済ませておく。画面は e2e/out/ に保存する。
-set -u
+set -eu
 E2E="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(dirname "$E2E")"
-rm -rf "$E2E/out" && mkdir -p "$E2E/out"
+# 他の開発サーバーが同じポートを使っていたら触らず終了する。
+for port in 3100 4200; do
+  if lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
+    echo "確認用ポート $port は使用中です" >&2
+    exit 1
+  fi
+done
+mkdir -p "$E2E/out"
+FAKE=""
+SERVER=""
+cleanup() {
+  [ -z "$SERVER" ] || kill "$SERVER" 2>/dev/null || true
+  [ -z "$FAKE" ] || kill "$FAKE" 2>/dev/null || true
+}
+trap cleanup EXIT
 node "$E2E/fake-google.mjs" > "$E2E/out/fake-google.log" 2>&1 &
 FAKE=$!
 cd "$ROOT"
-AI_PROVIDER=mock POC_ACCESS_CODE=test-code GOOGLE_TTS_API_KEY=test-google-key \
+NEXT_PUBLIC_SUPABASE_URL= NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY= VERCEL_ENV=preview AI_PROVIDER=mock POC_ACCESS_CODE=test-code GOOGLE_TTS_API_KEY=test-google-key \
   GOOGLE_TTS_BASE_URL=http://localhost:4200 GOOGLE_STT_BASE_URL=http://localhost:4200/closing \
-  npx next start -p 3100 > "$E2E/out/server.log" 2>&1 &
+  node "$ROOT/node_modules/next/dist/bin/next" start -p 3100 > "$E2E/out/server.log" 2>&1 &
 SERVER=$!
 for _ in $(seq 1 30); do curl -s -o /dev/null http://localhost:3100/ && break; sleep 1; done
 STATUS=0
@@ -18,7 +32,5 @@ node "$E2E/product.mjs" || STATUS=1
 node "$E2E/mic-denied.mjs" || STATUS=1
 node "$E2E/history-retry.mjs" || STATUS=1
 node "$E2E/agent-login.mjs" || STATUS=1
-# next start が立ち上げた next-server も止める
-for pid in $(ps -eo pid,args | awk '$2=="next-server" {print $1}'); do kill "$pid"; done
-kill $SERVER $FAKE 2>/dev/null
+node "$E2E/agent-seekers.mjs" || STATUS=1
 exit $STATUS

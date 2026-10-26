@@ -61,3 +61,15 @@ export async function onboard(page, occupation) {
   await page.click("text=はじめての面接へ(約5分)");
   await page.waitForSelector("text=このまま始める");
 }
+
+/** 段階Bの確認用。開発用コードだけを使い、本物のメールは送らない。 */
+export async function agentLogin(page, email) {
+  await page.goto(`${BASE_URL}/agent/login`);
+  await page.getByLabel("メールアドレス").fill(email);
+  await page.getByRole("button", { name: "ログインのメールを送る" }).click();
+  const notice = await page.waitForSelector("text=/開発用の確認コード/");
+  const code = (await notice.textContent()).match(/\d{6}/)[0];
+  await page.locator("input[autocomplete=one-time-code]").fill(code);
+  await page.getByRole("button", { name: "ログインする", exact: true }).click();
+  await page.waitForURL(/\/agent$/);
+}
