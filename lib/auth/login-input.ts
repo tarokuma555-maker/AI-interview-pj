@@ -9,3 +9,7 @@ export function normalizeCode(input: string): string | null {
   const code = input.replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xfee0)).replace(/[\s\-‐－ー]/g, "");
   return /^\d{6}$/.test(code) ? code : null;
 }
+
+export function isEmail(input: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
+}

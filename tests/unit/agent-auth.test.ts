@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { normalizeCode, normalizeEmail } from "@/lib/auth/login-input";
+import { INPUT_MESSAGES, loginErrorMessage } from "@/lib/auth/messages";
 import { memoryAuth } from "@/lib/auth/memory-auth";
 import { backendMode } from "@/lib/backend/mode";
 
@@ -81,5 +82,34 @@ describe("開発用のログイン(Supabase がない環境)", () => {
     memoryAuth.endSession(one);
     expect(memoryAuth.agentForSession(one)).toBeNull();
     expect(memoryAuth.agentForSession("unknown")).toBeNull();
+  });
+});
+
+describe("ログインできないときの言葉(技術的な言葉を出さない)", () => {
+  it("登録されていないメールアドレスは、管理者への問い合わせを案内する", () => {
+    const message = "このメールアドレスは登録されていません。管理者にお問い合わせください";
+    expect(loginErrorMessage({ code: "otp_disabled" })).toBe(message);
+    expect(loginErrorMessage({ code: "signup_disabled" })).toBe(message);
+    expect(loginErrorMessage({ code: "user_not_found" })).toBe(message);
+    expect(loginErrorMessage({ message: "Signups not allowed for otp" })).toBe(message);
+  });
+
+  it("メールを続けて送ったときは、少し待つよう案内する", () => {
+    const message = "メールを続けて送ることはできません。1分ほど待ってからお試しください";
+    expect(loginErrorMessage({ status: 429 })).toBe(message);
+    expect(loginErrorMessage({ code: "over_email_send_rate_limit" })).toBe(message);
+  });
+
+  it("コードの誤り・期限切れは、メールの送り直しを案内する", () => {
+    expect(loginErrorMessage({ code: "otp_expired" })).toBe("確認コードが違うか、期限が切れています。もう一度メールを送ってください");
+  });
+
+  it("それ以外は、時間をおいて試すよう案内する", () => {
+    expect(loginErrorMessage({ status: 500, message: "boom" })).toBe("うまくいきませんでした。時間をおいてもう一度お試しください");
+  });
+
+  it("入力の誤りは、何を直せばよいかを示す", () => {
+    expect(INPUT_MESSAGES.email).toBe("メールアドレスを確かめてください");
+    expect(INPUT_MESSAGES.code).toBe("メールに書かれた6桁の数字を入れてください");
   });
 });
