@@ -10,8 +10,8 @@ describe("ログインしていないときの移動", () => {
     expect(agentRedirect("/agent/login", false)).toBeNull();
   });
 
-  it("ログイン済みでログインの画面を開いたら、エージェントの画面へ移す", () => {
-    expect(agentRedirect("/agent/login", true)).toBe("/agent");
+  it("ログインの画面は入口では移さない(利用を止めた人・古いログイン情報で、移動が止まらなくなるのを防ぐ)", () => {
+    expect(agentRedirect("/agent/login", true)).toBeNull();
     expect(agentRedirect("/agent", true)).toBeNull();
   });
 

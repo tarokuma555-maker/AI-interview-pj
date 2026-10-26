@@ -8,6 +8,12 @@ await page.goto(`${BASE_URL}/agent`);
 await page.waitForURL("**/agent/login");
 await shot("login");
 
+// 古いログイン情報が残っていても、ログインの画面が出る(移動が止まらなくならない)
+await page.context().addCookies([{ name: "agent-dev-session", value: "stale", url: BASE_URL }]);
+await page.goto(`${BASE_URL}/agent`);
+await page.waitForSelector("input[type=email]");
+await page.context().clearCookies();
+
 // メールアドレスを入れて送ると、開発用の確認コードが出る。全角で入れてもログインできる
 await page.fill("input[type=email]", " Agent@Example.com ");
 await page.click("text=ログインのメールを送る");

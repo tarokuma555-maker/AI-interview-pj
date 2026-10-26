@@ -3,9 +3,13 @@
 export const AGENT_HOME = "/agent";
 export const AGENT_LOGIN = "/agent/login";
 
-/** 移す先(移さないなら null)。本当のログインの確認は、各画面のサーバー側でも行う */
+/**
+ * 移す先(移さないなら null)。本当のログインの確認は、各画面のサーバー側でも行う。
+ * ログインの画面は入口では移さない(ログイン済みかは画面のサーバー側で確かめる)。入口の目安と画面の判断が
+ * 食い違う場合(利用を止めた人、古いログイン情報)に、2つの画面の間で移動が止まらなくなるのを防ぐため。
+ */
 export function agentRedirect(pathname: string, signedIn: boolean): string | null {
-  if (pathname === AGENT_LOGIN) return signedIn ? AGENT_HOME : null;
+  if (pathname === AGENT_LOGIN) return null;
   const isAgentPage = pathname === AGENT_HOME || pathname.startsWith(`${AGENT_HOME}/`);
   return isAgentPage && !signedIn ? AGENT_LOGIN : null;
 }
