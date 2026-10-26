@@ -16,6 +16,7 @@ for _ in $(seq 1 30); do curl -s -o /dev/null http://localhost:3100/ && break; s
 STATUS=0
 node "$E2E/product.mjs" || STATUS=1
 node "$E2E/mic-denied.mjs" || STATUS=1
+node "$E2E/history-retry.mjs" || STATUS=1
 # next start が立ち上げた next-server も止める
 for pid in $(ps -eo pid,args | awk '$2=="next-server" {print $1}'); do kill "$pid"; done
 kill $SERVER $FAKE 2>/dev/null

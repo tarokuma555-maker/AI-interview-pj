@@ -20,6 +20,9 @@ export type Company = {
   updatedAt: string;
 };
 
+/** 入力中の応募先(画面を離れても消さないために残す。id が null なら新しく追加する応募先) */
+export type CompanyDraft = { id: string | null; name: string; position: string; jobDescription: string };
+
 /** 利用者が選ぶ面接の設定(要件 D-13。技術的な設定は含めない) */
 export type InterviewChoice = {
   /** 応募先(null は応募先を指定しない汎用の面接) */
@@ -59,6 +62,7 @@ export type AppData = {
   };
   preferences: { speechRate: SpeechRate; captions: boolean; earphones: boolean };
   companies: Company[];
+  companyDraft: CompanyDraft | null;
   lastChoice: InterviewChoice | null;
 };
 
@@ -71,6 +75,8 @@ const SESSIONS_KEY = "ai-mensetsu:sessions";
 /** 試作版で入力したアクセスコード(同じブラウザなら招待リンクなしで使えるようにする) */
 const POC_CODE_KEY = "poc-access-code";
 
+const EMPTY_DRAFT: CompanyDraft = { id: null, name: "", position: "", jobDescription: "" };
+
 export const EMPTY_DATA: AppData = {
   version: 1,
   accessCode: null,
@@ -79,6 +85,7 @@ export const EMPTY_DATA: AppData = {
   profile: { occupation: null, occupationOther: "", careerSummary: "", reasonForChange: "" },
   preferences: { speechRate: "normal", captions: false, earphones: false },
   companies: [],
+  companyDraft: null,
   lastChoice: null,
 };
 
@@ -116,6 +123,7 @@ export function parseData(raw: unknown, pocCode: string | null): AppData {
     profile: { ...EMPTY_DATA.profile, ...value.profile },
     preferences: { ...EMPTY_DATA.preferences, ...value.preferences },
     companies: Array.isArray(value.companies) ? value.companies : [],
+    companyDraft: value.companyDraft && typeof value.companyDraft === "object" ? { ...EMPTY_DRAFT, ...value.companyDraft } : null,
   };
 }
 
@@ -179,6 +187,16 @@ export function saveSession(session: SavedSession): boolean {
     if (writeJson(SESSIONS_KEY, sessions.slice(0, keep))) return true;
   }
   return false;
+}
+
+/** 練習の記録を書き換える(並び順は変えない。評価を作り直したときなど) */
+export function updateSession(id: string, change: (session: SavedSession) => SavedSession): boolean {
+  const current = load();
+  if (!current.sessions.some((s) => s.id === id)) return false;
+  const sessions = current.sessions.map((s) => (s.id === id ? change(s) : s));
+  state = { ...current, sessions };
+  emit();
+  return writeJson(SESSIONS_KEY, sessions);
 }
 
 export function deleteSession(id: string): void {

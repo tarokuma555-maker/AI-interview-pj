@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildContext, buildControllerConfig, chooseServices, currentChoice, FIRST_CHOICE, SLOW_RATE } from "@/features/app/interview-setup";
+import { buildContext, buildControllerConfig, buildFeedbackRequest, chooseServices, currentChoice, FIRST_CHOICE, SLOW_RATE } from "@/features/app/interview-setup";
 import { extractInviteCode } from "@/features/app/invite";
 import { isInAppBrowser, micPermissionHelp, preparingLabel, prepareProblem, roomMessage } from "@/features/app/messages";
 import { occupationLabel } from "@/features/app/occupations";
-import { EMPTY_DATA, parseData, type AppData } from "@/features/app/store";
+import { EMPTY_DATA, parseData, type AppData, type SavedSession } from "@/features/app/store";
 import type { PocConfig } from "@/features/interview/client/poc-api";
 import { renderSessionContext } from "@/lib/ai/session-context";
 
@@ -105,6 +105,46 @@ describe("保存していたデータの読み込み", () => {
     expect(data.accessCode).toBe("poc-code");
     expect(parseData({ accessCode: "app-code" }, "poc-code").accessCode).toBe("app-code");
     expect(parseData(null, null)).toEqual(EMPTY_DATA);
+  });
+
+  it("入力中の応募先は、足りない項目を空にして読み込む", () => {
+    expect(parseData({ companyDraft: { id: null, name: "途中の病院" } }, null).companyDraft).toEqual({ id: null, name: "途中の病院", position: "", jobDescription: "" });
+    expect(parseData({ companyDraft: "broken" }, null).companyDraft).toBeNull();
+  });
+});
+
+describe("記録から結果をまとめ直す(要件 F-08-2)", () => {
+  const SESSION: SavedSession = {
+    id: "s1",
+    startedAt: "",
+    finishedAt: "",
+    choice: { companyId: "c1", stage: "second", style: "strict", durationMin: 15, answerBy: "voice" },
+    companyName: "サンプル総合病院",
+    position: "看護師(内科病棟)",
+    history: [
+      { speaker: "interviewer", text: "自己紹介をお願いします。" },
+      { speaker: "candidate", text: "看護師の山田です。以上です。", inputMode: "voice" },
+    ],
+    feedback: null,
+  };
+
+  it("記録した面接の設定と会話に、いまの求人票と経歴を合わせる", () => {
+    const request = buildFeedbackRequest(DATA, SESSION, CONFIG);
+    expect(request.settings).toMatchObject({ stage: "second", style: "strict", durationMin: 15, interviewerModel: "opus", answerBy: "voice" });
+    expect(request.context).toMatchObject({ companyName: "サンプル総合病院", jobDescription: "急性期病棟", careerSummary: "内科病棟8年" });
+    expect(request.history).toBe(SESSION.history);
+    expect(request.plan).toBeNull();
+  });
+
+  it("応募先が消されていたら、記録に残した名前と職種だけを使う", () => {
+    const request = buildFeedbackRequest({ ...DATA, companies: [] }, SESSION, CONFIG);
+    expect(request.context).toMatchObject({ companyName: "サンプル総合病院", position: "看護師(内科病棟)", jobDescription: "" });
+  });
+
+  it("途中で文字の回答に切り替えても、すべて文字で答えた面接だけを「文字」とする", () => {
+    const text = (inputMode: "voice" | "text") => ({ speaker: "candidate" as const, text: "回答", inputMode });
+    expect(buildFeedbackRequest(DATA, { ...SESSION, history: [text("voice"), text("text")] }, CONFIG).settings.answerBy).toBe("voice");
+    expect(buildFeedbackRequest(DATA, { ...SESSION, history: [text("text")] }, CONFIG).settings.answerBy).toBe("text");
   });
 });
 

@@ -1,10 +1,10 @@
 import { STANDARD_AVATAR } from "@/features/avatar/manifest";
 import type { ControllerConfig } from "@/features/interview/client/interview-controller";
 import type { PocConfig } from "@/features/interview/client/poc-api";
-import type { CandidateContext, Stage, Style } from "@/lib/interview/types";
+import type { CandidateContext, SessionSettings, Stage, Style, TurnRecord } from "@/lib/interview/types";
 import type { SttProvider, TtsProvider } from "@/lib/speech/voices";
 import { occupationLabel } from "./occupations";
-import type { AppData, InterviewChoice } from "./store";
+import type { AppData, InterviewChoice, SavedSession } from "./store";
 
 /**
  * 利用者が選んだ面接の設定から、面接の進行に必要な設定を作る(要件 D-13)。
@@ -98,5 +98,40 @@ export function buildControllerConfig(
     ttsProvider: services.tts,
     earphones: data.preferences.earphones,
     voiceGender: interviewer?.voice,
+  };
+}
+
+/**
+ * 練習の記録から、評価を作り直すための入力を作る(要件 F-08-2。設計書 14.2)。
+ * 記録には面接の設定と会話だけが残っているため、求人票と経歴はいまの内容を使う。
+ * 応募先が消されていたら、名前と職種だけを使う。質問計画は残していないため渡さない。
+ */
+export function buildFeedbackRequest(
+  data: AppData,
+  session: SavedSession,
+  config: PocConfig,
+): { settings: SessionSettings; context: CandidateContext; plan: null; history: TurnRecord[] } {
+  const { choice } = session;
+  const context = buildContext(data, choice);
+  const companyGone = choice.companyId !== null && !data.companies.some((c) => c.id === choice.companyId);
+  const answeredByVoice = session.history.some((turn) => turn.speaker === "candidate" && turn.inputMode !== "text");
+  return {
+    settings: {
+      stage: choice.stage,
+      style: choice.style,
+      durationMin: choice.durationMin,
+      interviewerModel: config.interviewerModels[0]?.key ?? "opus",
+      voiceId: "",
+      interviewerName: STANDARD_AVATAR.interviewer?.name,
+      answerBy: answeredByVoice ? "voice" : "text",
+    },
+    context: {
+      ...context,
+      companyName: session.companyName,
+      position: session.position,
+      jobDescription: companyGone ? "" : context.jobDescription,
+    },
+    plan: null,
+    history: session.history,
   };
 }

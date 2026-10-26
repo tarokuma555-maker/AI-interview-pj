@@ -1,30 +1,37 @@
 "use client";
 
 import { useState } from "react";
-import { newId, updateAppData, useAppData, type Company } from "@/features/app/store";
+import { newId, updateAppData, useAppData, type CompanyDraft } from "@/features/app/store";
 import { Card, PageHeader, PrimaryButton, SecondaryButton, SecondaryLink, TextArea, TextInput } from "./ui";
 
-type Draft = Pick<Company, "name" | "position" | "jobDescription">;
-const EMPTY_DRAFT: Draft = { name: "", position: "", jobDescription: "" };
+const NEW_DRAFT: CompanyDraft = { id: null, name: "", position: "", jobDescription: "" };
 
-/** 応募先(要件 S-04、F-03-1)。求人票の文章を貼り付けると、それに合わせて質問する */
+/**
+ * 応募先(要件 S-04、F-03-1)。求人票の文章を貼り付けると、それに合わせて質問する。
+ * 入力中の内容はブラウザに残し、画面を離れて戻っても続きから入力できるようにする(設計書 14.2)。
+ */
 export function CompaniesScreen() {
   const data = useAppData();
-  const [editing, setEditing] = useState<{ id: string | null; draft: Draft } | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   if (!data) return null;
+  const editing = data.companyDraft;
+
+  function setEditing(draft: CompanyDraft | null) {
+    updateAppData((d) => ({ ...d, companyDraft: draft }));
+  }
 
   function save() {
-    if (!editing || !editing.draft.name.trim()) return;
+    if (!editing || !editing.name.trim()) return;
     const now = new Date().toISOString();
-    const draft = { ...editing.draft, name: editing.draft.name.trim(), position: editing.draft.position.trim() };
+    const fields = { name: editing.name.trim(), position: editing.position.trim(), jobDescription: editing.jobDescription };
     updateAppData((d) => ({
       ...d,
-      companies: editing.id
-        ? d.companies.map((c) => (c.id === editing.id ? { ...c, ...draft, updatedAt: now } : c))
-        : [...d.companies, { id: newId(), ...draft, updatedAt: now }],
+      // 直している間に応募先が消されていたら、新しく追加する
+      companies: d.companies.some((c) => c.id === editing.id)
+        ? d.companies.map((c) => (c.id === editing.id ? { ...c, ...fields, updatedAt: now } : c))
+        : [...d.companies, { id: newId(), ...fields, updatedAt: now }],
+      companyDraft: null,
     }));
-    setEditing(null);
   }
 
   function remove(id: string) {
@@ -37,23 +44,23 @@ export function CompaniesScreen() {
   }
 
   if (editing) {
-    const set = (patch: Partial<Draft>) => setEditing({ ...editing, draft: { ...editing.draft, ...patch } });
+    const set = (patch: Partial<CompanyDraft>) => setEditing({ ...editing, ...patch });
     return (
       <>
         <PageHeader title={editing.id ? "応募先を直す" : "応募先を追加"} lead="求人票の内容を貼り付けると、それに合わせた質問で練習できます。" />
         <Card>
-          <TextInput label="病院・施設・会社の名前" value={editing.draft.name} onChange={(name) => set({ name })} placeholder="例:〇〇総合病院" maxLength={200} />
-          <TextInput label="職種・配属先" value={editing.draft.position} onChange={(position) => set({ position })} placeholder="例:看護師(内科病棟)" maxLength={200} />
+          <TextInput label="病院・施設・会社の名前" value={editing.name} onChange={(name) => set({ name })} placeholder="例:〇〇総合病院" maxLength={200} />
+          <TextInput label="職種・配属先" value={editing.position} onChange={(position) => set({ position })} placeholder="例:看護師(内科病棟)" maxLength={200} />
           <TextArea
             label="求人票の内容"
             hint="仕事内容・求める人物像・勤務形態など。求人サイトの文章をそのまま貼り付けて大丈夫です"
-            value={editing.draft.jobDescription}
+            value={editing.jobDescription}
             onChange={(jobDescription) => set({ jobDescription })}
             maxLength={20000}
             rows={8}
           />
         </Card>
-        <PrimaryButton onClick={save} disabled={!editing.draft.name.trim()}>
+        <PrimaryButton onClick={save} disabled={!editing.name.trim()}>
           保存する
         </PrimaryButton>
         <SecondaryButton onClick={() => setEditing(null)}>やめる</SecondaryButton>
@@ -85,7 +92,7 @@ export function CompaniesScreen() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
-                  <SecondaryButton onClick={() => setEditing({ id: company.id, draft: company })}>直す</SecondaryButton>
+                  <SecondaryButton onClick={() => setEditing({ id: company.id, name: company.name, position: company.position, jobDescription: company.jobDescription })}>直す</SecondaryButton>
                   <SecondaryButton onClick={() => setDeleting(company.id)}>削除</SecondaryButton>
                 </div>
               )}
@@ -93,7 +100,7 @@ export function CompaniesScreen() {
           </li>
         ))}
       </ul>
-      <PrimaryButton onClick={() => setEditing({ id: null, draft: EMPTY_DRAFT })}>応募先を追加</PrimaryButton>
+      <PrimaryButton onClick={() => setEditing(NEW_DRAFT)}>応募先を追加</PrimaryButton>
       <SecondaryLink href="/">ホームに戻る</SecondaryLink>
     </>
   );

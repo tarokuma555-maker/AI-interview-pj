@@ -57,6 +57,10 @@ await shot("history-detail");
 await page.goto(`${BASE_URL}/companies`);
 await page.click("text=応募先を追加");
 await page.fill("input >> nth=0", "サンプル総合病院");
+// 入力の途中で画面を離れても、戻れば続きから入力できる
+await page.click("header >> text=困ったとき");
+await page.goto(`${BASE_URL}/companies`);
+if ((await page.inputValue("input >> nth=0")) !== "サンプル総合病院") throw new Error("入力中の応募先が消えました");
 await page.fill("input >> nth=1", "看護師(内科病棟)");
 await page.click("text=保存する");
 await page.waitForSelector("text=サンプル総合病院");

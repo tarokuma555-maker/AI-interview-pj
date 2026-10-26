@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
-import { STAGE_CHOICES } from "@/features/app/interview-setup";
-import { deleteSession, useSessions, type SavedSession } from "@/features/app/store";
+import { useAppConfig } from "@/features/app/access";
+import { buildFeedbackRequest, STAGE_CHOICES } from "@/features/app/interview-setup";
+import { deleteSession, updateSession, useAppData, useSessions, type SavedSession } from "@/features/app/store";
+import { ApiError, fetchFeedback } from "@/features/interview/client/poc-api";
 import { formatDate } from "./home-screen";
 import { ResultView, Transcript } from "./result-view";
-import { Loading, Notice, PageHeader, PrimaryLink, SecondaryButton, SecondaryLink } from "./ui";
+import { Card, Loading, Notice, PageHeader, PrimaryButton, PrimaryLink, SecondaryButton, SecondaryLink } from "./ui";
 
 function target(session: SavedSession): string {
   return session.companyName || session.position || "応募先の指定なし";
@@ -88,7 +90,7 @@ export function HistoryDetailScreen() {
         <ResultView result={session.feedback} history={session.history} previousScore={previousScore} actions={<PrimaryLink href="/interview">もう一度練習する</PrimaryLink>} />
       ) : (
         <>
-          <Notice>この練習には評価がありません。</Notice>
+          <RetryFeedback session={session} />
           <Transcript history={session.history} open />
         </>
       )}
@@ -112,6 +114,64 @@ export function HistoryDetailScreen() {
         <SecondaryButton onClick={() => setConfirming(true)}>この記録を削除</SecondaryButton>
       )}
       <SecondaryLink href="/history">練習の記録に戻る</SecondaryLink>
+    </>
+  );
+}
+
+type RetryState = { status: "idle" } | { status: "loading" } | { status: "failed"; message: string } | { status: "no_answers" };
+
+/** 評価がない記録の結果を、会話の記録からまとめ直す(面接直後に評価の作成に失敗した場合など) */
+function RetryFeedback({ session }: { session: SavedSession }) {
+  const data = useAppData();
+  const { state: config, retry: reloadConfig } = useAppConfig(data?.accessCode ?? null);
+  const [retry, setRetry] = useState<RetryState>({ status: "idle" });
+  const answered = session.history.some((turn) => turn.speaker === "candidate");
+
+  if (!answered || retry.status === "no_answers") return <Notice>回答がなかったため、結果はありません。</Notice>;
+
+  async function run() {
+    if (!data?.accessCode || config.status !== "ready") return;
+    setRetry({ status: "loading" });
+    try {
+      const result = await fetchFeedback(data.accessCode, buildFeedbackRequest(data, session, config.config));
+      updateSession(session.id, (s) => ({ ...s, feedback: result }));
+    } catch (error) {
+      if (error instanceof ApiError && error.code === "NO_ANSWERS") setRetry({ status: "no_answers" });
+      else setRetry({ status: "failed", message: "結果をまとめられませんでした。時間をおいて、もう一度お試しください。" });
+    }
+  }
+
+  if (retry.status === "loading") {
+    return (
+      <Card>
+        <p className="flex items-center gap-3 text-lg font-semibold" role="status" aria-live="polite">
+          <span className="size-5 animate-spin rounded-full border-4 border-border border-t-accent" aria-hidden />
+          結果をまとめています
+        </p>
+        <p className="text-muted">1分ほどかかります。この画面のままお待ちください。</p>
+      </Card>
+    );
+  }
+
+  return (
+    <>
+      {retry.status === "failed" ? (
+        <Notice tone="danger">{retry.message}</Notice>
+      ) : (
+        <Notice>この練習の結果は、まだまとまっていません。会話の記録から、いまからまとめられます。</Notice>
+      )}
+      {config.status === "invalid" ? (
+        <Notice>招待の期限が切れているため、結果をまとめられません。担当のキャリアアドバイザーにお問い合わせください。</Notice>
+      ) : config.status === "error" ? (
+        <>
+          <Notice tone="danger">{config.message}</Notice>
+          <PrimaryButton onClick={reloadConfig}>もう一度試す</PrimaryButton>
+        </>
+      ) : (
+        <PrimaryButton onClick={() => void run()} disabled={config.status !== "ready"}>
+          結果をまとめる
+        </PrimaryButton>
+      )}
     </>
   );
 }
