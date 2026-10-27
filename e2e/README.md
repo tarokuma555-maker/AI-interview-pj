@@ -34,3 +34,13 @@ npm test                             # = bash run.sh
 確認用ポート3100/4200が使用中なら終了する。終了時はこの確認で起動した2つのサーバーだけを止める。Supabase の接続設定は確認中だけ空にし、開発用のログイン・保存先を使う。
 
 特定の確認だけを実行する例: `E2E_ONLY=practice-link npm test`（このe2eフォルダー内で実行）。
+
+## 本物の Supabase での確認(段階E)
+
+`supabase-smoke.mjs` は、本物の Supabase につないだ環境(手元の `next start` や本番)で、エージェントのログイン → 求職者と招待リンクの作成 → リンクからの文字の面接と結果 → エージェントの結果の閲覧 → ほかのエージェントから見えないこと、を確かめる。メールは送らない(管理用のキーで作ったログイン用リンクで入る)。確認用のエージェントとデータは最後に消す(`KEEP=1` で残す)。
+
+```bash
+BASE_URL=<確かめる URL> NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node supabase-smoke.mjs
+```
+
+本番で実行すると、本物の AI で評価を1回作る(費用がかかる)。
