@@ -2,14 +2,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FeedbackResult } from "@/features/interview/client/poc-api";
 import type { QuestionPlan } from "@/lib/ai/schemas/plan";
 import { candidateContextSchema, sessionSettingsSchema, type TurnRecord } from "@/lib/interview/types";
+import { STALE_EVALUATION_MS } from "./evaluate";
 import { PracticeError, type PracticeRepo, type PracticeSession } from "./types";
 
-type Row = { id: string; link_id: string; seeker_id: string; request_id: string; settings: unknown; context: unknown; history: TurnRecord[]; plan: QuestionPlan | null; started_at: string; finished_at: string | null; evaluations: { status: "pending" | "done" | "failed"; result: FeedbackResult | null } | null };
+type Row = { id: string; link_id: string; seeker_id: string; request_id: string; settings: unknown; context: unknown; history: TurnRecord[]; plan: QuestionPlan | null; started_at: string; finished_at: string | null; evaluations: { status: "pending" | "done" | "failed"; result: FeedbackResult | null; updated_at: string } | null };
 function session(row: Row): PracticeSession {
   return { id: row.id, linkId: row.link_id, seekerId: row.seeker_id, requestId: row.request_id,
     settings: sessionSettingsSchema.parse(row.settings), context: candidateContextSchema.parse(row.context),
     startedAt: row.started_at, finishedAt: row.finished_at, history: row.history, plan: row.plan,
-    evaluation: row.evaluations?.status ?? "none", result: row.evaluations?.result ?? null,
+    evaluation: row.evaluations?.status ?? "none", result: row.evaluations?.result ?? null, evaluatedAt: row.evaluations?.updated_at ?? null,
     score: row.evaluations?.result?.feedback.overall_score ?? null };
 }
 function checked<T>(r: { data: T; error: { message: string } | null }): T {
@@ -19,7 +20,7 @@ function checked<T>(r: { data: T; error: { message: string } | null }): T {
   }
   return r.data;
 }
-const columns = "id,link_id,seeker_id,request_id,settings,context,history,plan,started_at,finished_at,evaluations(status,result)";
+const columns = "id,link_id,seeker_id,request_id,settings,context,history,plan,started_at,finished_at,evaluations(status,result,updated_at)";
 /** 管理接続を受け取る。呼び出し元は必ず有効なリンクを毎回検証する。 */
 export function createSupabasePracticeRepo(client: SupabaseClient): PracticeRepo {
   const repo: PracticeRepo = {
@@ -56,6 +57,9 @@ export function createSupabasePracticeRepo(client: SupabaseClient): PracticeRepo
     async complete(linkId, id, result, failed) {
       if (!await repo.get(linkId,id)) return;
       checked(await client.from("evaluations").update({ status: failed ? "failed" : "done", result, error: failed ? "FEEDBACK_FAILED" : null }).eq("session_id", id).eq("status", "pending"));
+    },
+    async reopen(linkId, id, now = new Date()) {
+      return checked(await client.rpc("reopen_evaluation", { p_link: linkId, p_session: id, p_stale_before: new Date(now.getTime() - STALE_EVALUATION_MS).toISOString() })) === true;
     },
   };
   return repo;

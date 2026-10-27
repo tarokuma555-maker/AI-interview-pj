@@ -3,15 +3,16 @@ import { createMemoryRepo, type MemoryData } from "@/lib/agent-data/memory-repo"
 import { createMemoryPracticeRepo } from "@/lib/practice-link/memory-repo";
 import { hashLinkKey } from "@/lib/practice-link/key";
 import { quotaCode } from "@/lib/practice-link/snapshot";
+import { canRetry, STALE_EVALUATION_MS } from "@/lib/practice-link/evaluate";
 import { mockFeedback } from "@/lib/ai/mock";
-async function setup() {
+async function setup(clock = () => new Date("2026-10-27T01:00:00Z")) {
   const store: MemoryData = { seekers: [], links: [], sessions: [] };
   const agent = createMemoryRepo({ id: "a", role: "advisor", email: "a@example.com", displayName: "a" },store);
   const sid = await agent.createSeeker({ name: "架空求職者", occupation: "看護師", careerSummary: "病棟8年", reasonForChange: "" });
   const input = { companyName: "架空病院", position: "外来", jobDescription: "求人", stage: "second" as const, style: "standard" as const, durationMin: 15 as const };
   const lid = (await agent.createLink(sid,input))!;
   const key = (await agent.listLinks(sid))[0].key;
-  const practice = createMemoryPracticeRepo(store, () => new Date("2026-10-27T01:00:00Z"));
+  const practice = createMemoryPracticeRepo(store, clock);
   return { agent, sid, lid, hash: hashLinkKey(key), input, practice, store };
 }
 describe("招待面接の保存と上限", () => {
@@ -55,5 +56,42 @@ describe("招待面接の保存と上限", () => {
     expect(quotaCode(Array(3).fill("2026-10-26T15:00:00Z"),new Date("2026-10-27T01:00:00Z"))).toBe("DAY_LIMIT");
     expect(quotaCode(Array(30).fill("2026-10-01T00:00:00Z"),new Date("2026-10-27T00:00:00Z"))).toBe("MONTH_LIMIT");
     expect(quotaCode(Array(30).fill("2026-10-31T14:59:59Z"),new Date("2026-10-31T15:00:00Z"))).toBeNull();
+  });
+});
+
+describe("結果の作り直し(段階D)", () => {
+  const history = [{ speaker: "candidate" as const, text: "病棟で8年働きました。", inputMode: "text" as const }];
+  it("まとめられなかった練習は1回だけ作り直しの権利を取れ、別のリンクからは取れない", async () => {
+    const { practice, lid, hash } = await setup();
+    const s = await practice.start(hash,"1","text","");
+    expect(await practice.reopen(lid,s.id)).toBe(false);
+    await practice.finish(lid,s.id,history,null);
+    await practice.complete(lid,s.id,null,true);
+    expect((await practice.get(lid,s.id))!.evaluation).toBe("failed");
+    expect(await practice.reopen("other",s.id)).toBe(false);
+    expect(await practice.reopen(lid,s.id)).toBe(true);
+    expect((await practice.get(lid,s.id))!.evaluation).toBe("pending");
+    expect(await practice.reopen(lid,s.id)).toBe(false);
+  });
+  it("作成中のまま6分以上たった練習だけを、止まったものとして作り直せる", async () => {
+    let now = new Date("2026-10-27T01:00:00Z");
+    const { practice, lid, hash } = await setup(() => now);
+    const s = await practice.start(hash,"1","text","");
+    await practice.finish(lid,s.id,history,null);
+    expect((await practice.get(lid,s.id))!.evaluatedAt).toBe(now.toISOString());
+    now = new Date(now.getTime() + 5 * 60_000);
+    expect(await practice.reopen(lid,s.id)).toBe(false);
+    now = new Date(now.getTime() + 2 * 60_000);
+    expect(await practice.reopen(lid,s.id)).toBe(true);
+  });
+  it("画面で作り直しのボタンを出すかの判断", () => {
+    const at = new Date("2026-10-27T01:00:00Z");
+    const ago = (ms: number) => new Date(at.getTime() - ms).toISOString();
+    const finishedAt = ago(STALE_EVALUATION_MS * 2);
+    expect(canRetry({ finishedAt, evaluation: "failed", evaluatedAt: ago(1000) }, at)).toBe(true);
+    expect(canRetry({ finishedAt, evaluation: "pending", evaluatedAt: ago(5 * 60_000) }, at)).toBe(false);
+    expect(canRetry({ finishedAt, evaluation: "pending", evaluatedAt: ago(7 * 60_000) }, at)).toBe(true);
+    expect(canRetry({ finishedAt: null, evaluation: "failed", evaluatedAt: ago(1000) }, at)).toBe(false);
+    expect(canRetry({ finishedAt, evaluation: "done", evaluatedAt: ago(7 * 60_000) }, at)).toBe(false);
   });
 });

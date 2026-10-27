@@ -10,6 +10,7 @@ beforeEach(async () => {
   await db.exec(read("../db/supabase-stub.sql"));
   await db.exec(read("../../supabase/migrations/20261027000000_agent_invite.sql"));
   await db.exec(read("../../supabase/migrations/20261027000001_practice_sessions.sql"));
+  await db.exec(read("../../supabase/migrations/20261028000000_reopen_evaluation.sql"));
   await db.query("insert into auth.users(id,email) values ($1,'a@example.com')",[advisor]);
   sid = (await db.query<{id:string}>("insert into seekers(advisor_id,name) values ($1,'架空求職者') returning id",[advisor])).rows[0].id;
   lid = (await db.query<{id:string}>("insert into practice_links(seeker_id,key_hash,company_name,stage,style,duration_min) values ($1,'hash','架空病院','second','standard',15) returning id",[sid])).rows[0].id;
@@ -44,4 +45,34 @@ it("一般のログイン権限から開始・終了関数を直接呼べない"
   await db.exec("set role authenticated");
   await expect(start(1)).rejects.toThrow(/permission denied/);
   await expect(db.query("select finish_practice($1,$2,'[]',null)",[lid,advisor])).rejects.toThrow(/permission denied/);
+});
+
+// 結果の作り直し(設計 2026-10-27 6章、段階D)
+const finished = async (n: number) => { const id = await start(n); await db.query("select finish_practice($1,$2,'[]',null)",[lid,id]); return id; };
+const reopen = async (id: string, link = lid, staleBefore = "now() - interval '6 minutes'") =>
+  (await db.query<{ok:boolean}>(`select reopen_evaluation($1,$2,${staleBefore}) as ok`,[link,id])).rows[0].ok;
+it("結果をまとめられなかった練習は、1回だけ作り直しの権利を取れる", async () => {
+  const id = await finished(1);
+  await db.query("update evaluations set status='failed', error='FEEDBACK_FAILED', result='{}' where session_id=$1",[id]);
+  expect(await reopen(id)).toBe(true);
+  expect((await db.query("select status,attempts,result,error from evaluations where session_id=$1",[id])).rows[0]).toEqual({ status: "pending", attempts: 2, result: null, error: null });
+  expect(await reopen(id)).toBe(false);
+});
+it("作成中は、止まってから(最後の更新が基準より前)でなければ作り直せない", async () => {
+  const id = await finished(1);
+  expect(await reopen(id)).toBe(false);
+  expect(await reopen(id, lid, "now() + interval '1 minute'")).toBe(true);
+});
+it("終わっていない練習・別のリンク・結果が出た練習は作り直せない", async () => {
+  const unfinished = await start(1);
+  expect(await reopen(unfinished, lid, "now() + interval '1 minute'")).toBe(false);
+  const id = await finished(2);
+  await db.query("update evaluations set status='failed' where session_id=$1",[id]);
+  expect(await reopen(id, advisor)).toBe(false);
+  await db.query("update evaluations set status='done' where session_id=$1",[id]);
+  expect(await reopen(id, lid, "now() + interval '1 minute'")).toBe(false);
+});
+it("一般のログイン権限から作り直しの関数を呼べない", async () => {
+  await db.exec("set role authenticated");
+  await expect(db.query("select reopen_evaluation($1,$2,now())",[lid,advisor])).rejects.toThrow(/permission denied/);
 });
