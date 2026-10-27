@@ -6,6 +6,12 @@
 | 対象 | このリポジトリで開発を続ける人・コーディングエージェント(T3 Code から使う Claude Code・Codex など) |
 | 前提 | まず [要件定義書](requirements.md)(v0.15)と [基本設計書](design.md)(v0.15)を読む。本書はその要約と、文書に書いていない作業上の決まりをまとめたもの |
 
+## 追記 2026-10-28 01:34 JST：段階D完了
+
+エージェントの④(練習の一覧)と練習の結果(求職者と同じ結果・会話の記録の全文)を実装。結果をまとめられなかった・止まった(6分以上)練習は、エージェントと求職者の両方から作り直せる(SQL `reopen_evaluation`。権利は1回だけ)。
+
+手元で lint・型・単体250件・build・e2e 全本が成功。設計書 v0.18・要件定義書 v0.18、段階Dの計画(`docs/superpowers/plans/2026-10-28-agent-invite-stage-d.md`)を参照。次は段階E(本物の Supabase への接続と実機での確認)。Supabase のプロジェクト作成、マイグレーション3本の適用、環境変数(`NEXT_PUBLIC_SUPABASE_URL`・`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`・`SUPABASE_SERVICE_ROLE_KEY`・`PRACTICE_LINK_SECRET`)の設定が必要。未push・未公開。
+
 ## 追記 2026-10-27：段階C完了
 
 招待リンク `/i` から機器確認→音声/文字面接→結果保存→履歴・再練習まで実装。上限は求職者単位で日本時間の1日3回・月30回。段階Bの担当者一覧にも回数・点数が反映される。
