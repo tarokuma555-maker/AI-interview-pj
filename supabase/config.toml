@@ -220,7 +220,9 @@ web3 = 30
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.
-enable_signup = false
+# 注意:ここを false にすると、Supabase 側では「メールでのログインそのもの」が止まる(ログインのメールが送れない)。
+# 新規登録は上の [auth] の enable_signup = false で止めている(招待制。要件 F-01-1)
+enable_signup = true
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true

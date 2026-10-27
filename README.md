@@ -147,3 +147,20 @@ e2e/                             ブラウザでの通しの確認(模擬サー�
 
 - 結果をまとめられなかった練習・止まった練習は「結果を作り直す」で作り直せる。続けて押しても作成は1回だけ。
 - Supabase使用時は `20261028000000_reopen_evaluation.sql` まで適用する。
+
+## 本番の構成(段階E。2026-10-28)
+
+| 項目 | 内容 |
+|---|---|
+| Supabase | プロジェクト `ai-interview-pj`(東京リージョン、無料プラン、組織「month color PJ」)。データベースの定義は `supabase/migrations/` の3本を適用済み。ログインの設定(招待制、サイトの URL、戻ってよい URL)は `supabase/config.toml` から反映済み |
+| Vercel の環境変数 | `NEXT_PUBLIC_SUPABASE_URL`・`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`・`SUPABASE_SERVICE_ROLE_KEY`・`PRACTICE_LINK_SECRET` を本番(Production)と、ブランチ `feat/login-db` のプレビューに設定済み。`PRACTICE_LINK_SECRET` は本番とプレビューで同じ値(違うと、片方で作ったリンクがもう片方で開けない) |
+| 秘密の値の控え | データベースのパスワードと `PRACTICE_LINK_SECRET` は、開発用の Mac のキーチェーン(「ai-interview-pj-supabase-db」「ai-interview-pj-practice-link-secret」)にだけ置いている |
+| エージェントの追加 | `node scripts/add-agent.mjs <メールアドレス> [--name 表示名] [--admin]`(環境変数 `NEXT_PUBLIC_SUPABASE_URL`・`SUPABASE_SERVICE_ROLE_KEY` が必要)。追加した人は `/agent/login` でメールアドレスを入れて、届いたメールのリンクでログインする |
+
+いまのログインのメールは、Supabase 標準の英語のメール(件名「Your sign-in link」)で、本文の「Sign in」を、ログインの画面を開いた端末のブラウザで押す(別のブラウザで開くとログインできない)。確認コードは入っていない。
+
+公開(求職者への配布)の前に必要なこと:
+
+1. **メール送信サービス(SMTP)の設定**:Supabase 標準のメール送信は、Supabase の組織のメンバーにしか届かず、1時間に2通まで。オーナー様側のエージェントがログインするには、Resend などのメール送信サービスを Supabase(Authentication → Emails → SMTP Settings)に設定する。設定したら `supabase/config.toml` のメールの文面の4行の「#」を外して `supabase config push` する(確認コードの入ったメールになる)。
+2. **有料プランへの切り替え**:無料プランは1週間使わないと止まり、バックアップもない。求職者に配る前に Pro(月25ドル〜)にする。
+3. **スマホでの確認**:本番の `/agent/login` からログインし、求職者と応募先を登録して、招待リンクをスマホで開いて最後まで練習する(音声で答える面接も)。

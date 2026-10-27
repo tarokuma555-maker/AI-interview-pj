@@ -38,7 +38,7 @@ export function LoginForm({ notice }: { notice: string | null }) {
       {sent ? (
         <>
           <Notice tone="success">
-            メールを送りました。メールのボタンを押すか、メールに書かれた6桁の確認コードを入れてください。
+            メールを送りました。届いたメールのリンク(英語のメール「Your sign-in link」の場合は「Sign in」)を、この画面を開いている端末で押してください。メールに6桁の確認コードが書かれている場合は、下に入れてもログインできます。
           </Notice>
           {sent.devCode && <Notice>開発用の確認コード:{sent.devCode}(メールは送っていません)</Notice>}
           <Card>
