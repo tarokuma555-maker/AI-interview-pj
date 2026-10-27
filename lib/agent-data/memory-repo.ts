@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { Agent } from "@/lib/auth/types";
 import { hashLinkKey, linkKey, linkSecret } from "@/lib/practice-link/key";
-import { summarizeLinks, summarizeSeekers } from "./summary";
+import type { PracticeSession } from "@/lib/practice-link/types";
+import { practiceSummary, previousScore, summarizeLinks, summarizeSeekers } from "./summary";
 import type { AgentRepo, PracticeLink, Seeker, SessionRow } from "./types";
 export type MemoryData = { seekers: Seeker[]; links: (PracticeLink & { keyHash: string })[]; sessions: SessionRow[] };
 const globals = globalThis as typeof globalThis & { agentData?: MemoryData };
@@ -10,6 +11,10 @@ export function memoryData(): MemoryData { return globals.agentData ??= { seeker
 export function createMemoryRepo(agent: Agent, store: MemoryData = memoryData()): AgentRepo {
   const owns = (id: string) => store.seekers.find(s => s.id === id && (s.advisorId === agent.id || agent.role === "admin"));
   const getLink = (sid: string, id: string) => owns(sid) ? store.links.find(l => l.seekerId === sid && l.id === id) : undefined;
+  // 練習の記録(段階C以降の形)だけを、新しい順に
+  const practices = (sid: string, lid: string) => getLink(sid, lid)
+    ? (store.sessions.filter(s => s.linkId === lid && s.seekerId === sid && "settings" in s) as PracticeSession[]).sort((x, y) => y.startedAt.localeCompare(x.startedAt))
+    : null;
   const publicLink = ({ keyHash: _hash, ...link }: MemoryData["links"][number]) => { void _hash; return link; };
   return {
     async listSeekers() { return summarizeSeekers(store.seekers.filter(s => owns(s.id)), store.links, store.sessions); },
@@ -22,5 +27,11 @@ export function createMemoryRepo(agent: Agent, store: MemoryData = memoryData())
     async createLink(sid, input) { if (!owns(sid)) return null; const id = randomUUID(); store.links.push({ ...input, id, seekerId: sid, disabled: false, createdAt: new Date().toISOString(), keyHash: hashLinkKey(linkKey(id, linkSecret())) }); return id; },
     async updateLink(sid, id, input) { const l = getLink(sid, id); if (!l) return false; Object.assign(l, input); return true; },
     async setLinkDisabled(sid, id, disabled) { const l = getLink(sid, id); if (!l) return false; l.disabled = disabled; return true; },
+    async listPractices(sid, lid) { return practices(sid, lid)?.map(p => practiceSummary(p)) ?? null; },
+    async getPractice(sid, lid, id) {
+      const all = practices(sid, lid), p = all?.find(x => x.id === id); if (!all || !p) return null;
+      const list = all.map(x => practiceSummary(x));
+      return { ...practiceSummary(p), linkId: lid, history: structuredClone(p.history), result: structuredClone(p.result), previousScore: previousScore(list, id) };
+    },
   };
 }

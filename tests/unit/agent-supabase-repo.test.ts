@@ -47,4 +47,25 @@ describe("Supabaseの読み書き(通信の形を確認。本物の接続では�
     expect(await repo.getSeeker("invalid")).toBeNull(); expect(calls).toHaveLength(0);
     await expect(repo.deleteSeeker(sid)).rejects.toThrow("保存先に接続できません");
   });
+  it("練習の一覧は、担当のリンクかを確かめてから、求職者とリンクの両方で絞って読む", async () => {
+    const { repo, calls } = setup([{ body: link }, { body: [
+      { id: "s2", link_id: lid, seeker_id: sid, started_at: "2026-10-27T01:00:00Z", finished_at: "2026-10-27T01:10:00Z", evaluations: { status: "failed", result: null, updated_at: "2026-10-27T01:11:00Z" } },
+      { id: "s1", link_id: lid, seeker_id: sid, started_at: "2026-10-26T01:00:00Z", finished_at: "2026-10-26T01:10:00Z", evaluations: { status: "done", result: { feedback: { overall_score: 72 } }, updated_at: "2026-10-26T01:11:00Z" } },
+      { id: "s0", link_id: lid, seeker_id: sid, started_at: "2026-10-25T01:00:00Z", finished_at: null, evaluations: null },
+    ] }]);
+    expect(await repo.listPractices(sid, lid)).toEqual([
+      { id: "s2", startedAt: "2026-10-27T01:00:00Z", finishedAt: "2026-10-27T01:10:00Z", score: null, status: "failed", retryable: true },
+      { id: "s1", startedAt: "2026-10-26T01:00:00Z", finishedAt: "2026-10-26T01:10:00Z", score: 72, status: "done", retryable: false },
+      { id: "s0", startedAt: "2026-10-25T01:00:00Z", finishedAt: null, score: null, status: "unfinished", retryable: false },
+    ]);
+    expect(calls[1].url.pathname).toContain("interview_sessions");
+    expect(calls[1].url.searchParams.get("link_id")).toBe(`eq.${lid}`);
+    expect(calls[1].url.searchParams.get("seeker_id")).toBe(`eq.${sid}`);
+    expect(calls[1].url.searchParams.get("select")).not.toContain("history");
+  });
+  it("担当でないリンクの練習は読まない", async () => {
+    const { repo, calls } = setup([{ body: null }]);
+    expect(await repo.listPractices(sid, lid)).toBeNull(); expect(calls).toHaveLength(1);
+    expect(await repo.getPractice(sid, "invalid", "s1")).toBeNull(); expect(calls).toHaveLength(1);
+  });
 });

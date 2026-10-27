@@ -3,7 +3,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Agent } from "@/lib/auth/types";
 import { hashLinkKey, linkKey, linkSecret } from "@/lib/practice-link/key";
 import type { LinkInput, SeekerInput } from "./schemas";
-import { summarizeLinks, summarizeSeekers } from "./summary";
+import type { FeedbackResult } from "@/features/interview/client/poc-api";
+import type { TurnRecord } from "@/lib/interview/types";
+import { practiceSummary, previousScore, summarizeLinks, summarizeSeekers, type PracticeFacts } from "./summary";
 import type { AgentRepo, PracticeLink, Seeker, SessionRow } from "./types";
 
 type SeekerRow = { id: string; advisor_id: string; name: string; occupation: string; career_summary: string; reason_for_change: string; created_at: string; updated_at: string };
@@ -19,6 +21,13 @@ const uuid = (id: string) => /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test
 function checked<T>({ data, error }: { data: T; error: unknown }): T {
   if (error) throw new Error("保存先に接続できません。少し待って、もう一度お試しください");
   return data;
+}
+type PracticeRow = { id: string; started_at: string; finished_at: string | null; history?: TurnRecord[];
+  evaluations: { status: "pending" | "done" | "failed"; result: FeedbackResult | null; updated_at: string } | { status: "pending" | "done" | "failed"; result: FeedbackResult | null; updated_at: string }[] | null };
+const practiceColumns = "id,started_at,finished_at,evaluations(status,result,updated_at)";
+function facts(r: PracticeRow): PracticeFacts {
+  const e = Array.isArray(r.evaluations) ? r.evaluations[0] : r.evaluations;
+  return { id: r.id, startedAt: r.started_at, finishedAt: r.finished_at, evaluation: e?.status ?? "none", evaluatedAt: e?.updated_at ?? null, result: e?.result ?? null };
 }
 /** 設計 2026-10-27 5章。ログイン本人の接続を使用し、すべての操作にRLSを適用。 */
 export function createSupabaseRepo(client: SupabaseClient, agent: Agent): AgentRepo {
@@ -47,6 +56,20 @@ export function createSupabaseRepo(client: SupabaseClient, agent: Agent): AgentR
     async createLink(sid, input) { if (!await repo.getSeeker(sid)) return null; const id = randomUUID(); checked(await client.from("practice_links").insert({ ...linkWrite(input), id, seeker_id: sid, key_hash: hashLinkKey(linkKey(id, linkSecret())) })); return id; },
     async updateLink(sid, id, input) { if (!uuid(sid) || !uuid(id)) return false; return !!checked(await client.from("practice_links").update(linkWrite(input)).eq("seeker_id", sid).eq("id", id).select("id").maybeSingle()); },
     async setLinkDisabled(sid, id, disabled) { if (!uuid(sid) || !uuid(id)) return false; return !!checked(await client.from("practice_links").update({ disabled_at: disabled ? new Date().toISOString() : null }).eq("seeker_id", sid).eq("id", id).select("id").maybeSingle()); },
+    async listPractices(sid, lid) {
+      // 担当のリンクか(RLS)を先に確かめる。練習の会話の本文は一覧では読まない
+      if (!await repo.getLink(sid, lid)) return null;
+      const rows = checked(await client.from("interview_sessions").select(practiceColumns).eq("link_id", lid).eq("seeker_id", sid).order("started_at", { ascending: false })) ?? [];
+      return (rows as unknown as PracticeRow[]).map(r => practiceSummary(facts(r)));
+    },
+    async getPractice(sid, lid, id) {
+      if (!uuid(id)) return null;
+      const list = await repo.listPractices(sid, lid); if (!list?.some(p => p.id === id)) return null;
+      const row = checked(await client.from("interview_sessions").select(`${practiceColumns},history`).eq("id", id).eq("link_id", lid).eq("seeker_id", sid).maybeSingle()) as unknown as PracticeRow | null;
+      if (!row) return null;
+      const f = facts(row);
+      return { ...practiceSummary(f), linkId: lid, history: row.history ?? [], result: f.result, previousScore: previousScore(list, id) };
+    },
   };
   return repo;
 }
