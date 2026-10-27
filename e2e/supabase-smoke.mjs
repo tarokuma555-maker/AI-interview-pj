@@ -72,10 +72,22 @@ try {
     await s.getByText("声は聞こえましたか?", { exact: true }).waitFor({ timeout: 60000 });
     // 人が聞いたことにはせず、レスポンスの音声データを後で検証する。
   }
+  const voiceAnswer = voiceMode ? s.waitForResponse(response => {
+    if (new URL(response.url()).pathname !== "/api/poc/turns" || response.request().method() !== "POST") return false;
+    const body = response.request().postDataJSON();
+    return body.kind === "answer" && body.answer?.inputMode === "voice";
+  }, { timeout: 180000 }) : null;
+  // 待機中に別の確認が失敗しても、未処理のPromise拒否を残さない。
+  if (voiceAnswer) void voiceAnswer.catch(() => {});
   await s.getByRole("button", { name: "面接を始める", exact: true }).click({ timeout: 60000 });
+  console.log("[smoke] 面接開始 OK");
   await s.getByText("あなたの番です", { exact: true }).waitFor({ timeout: 90000 });
   if (voiceMode) {
-    await s.getByText("面接官が話しています", { exact: true }).waitFor({ timeout: 120000 });
+    const response = await voiceAnswer;
+    assert(response?.ok(), "音声回答の会話が受理されている");
+    await response.finished();
+    await s.getByText("あなたの番です", { exact: true }).waitFor({ timeout: 90000 });
+    console.log("[smoke] 音声回答後の応答 OK");
   } else {
     await s.locator("textarea").fill("内科病棟で8年間、患者さんの看護と後輩の指導を担当してきました。急性期の経験を活かしたいと考えています。");
     await s.getByRole("button", { name: "回答を送る", exact: true }).click();
@@ -83,6 +95,7 @@ try {
   }
   await s.getByRole("button", { name: "面接を終了", exact: true }).click();
   await s.getByRole("button", { name: "終了する", exact: true }).click();
+  console.log("[smoke] 終了・結果待ち");
   await s.getByText("次にやること", { exact: true }).waitFor({ timeout: 300000 });
   await seeker.shot("result");
   if (voiceMode) {

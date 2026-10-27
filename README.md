@@ -158,7 +158,7 @@ e2e/                             ブラウザでの通しの確認(模擬サー�
 
 | 項目 | 内容 |
 |---|---|
-| Supabase | プロジェクト `ai-interview-pj`(東京リージョン、無料プラン、組織「month color PJ」)。データベースの定義は `supabase/migrations/` の3本を適用済み。ログインの設定(招待制、サイトの URL、戻ってよい URL)は `supabase/config.toml` から反映済み |
+| Supabase | プロジェクト `ai-interview-pj`(東京リージョン、無料プラン、組織「month color PJ」)。データベースの定義は `supabase/migrations/` の4本を適用済み。ログインの設定(招待制、サイトの URL、戻ってよい URL)は `supabase/config.toml` から反映済み |
 | Vercel の環境変数 | `NEXT_PUBLIC_SUPABASE_URL`・`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`・`SUPABASE_SERVICE_ROLE_KEY`・`PRACTICE_LINK_SECRET` を本番(Production)と、ブランチ `feat/login-db` のプレビューに設定済み。`PRACTICE_LINK_SECRET` は本番とプレビューで同じ値(違うと、片方で作ったリンクがもう片方で開けない) |
 | 秘密の値の控え | データベースのパスワードと `PRACTICE_LINK_SECRET` は、開発用の Mac のキーチェーン(「ai-interview-pj-supabase-db」「ai-interview-pj-practice-link-secret」)にだけ置いている |
 | エージェントの追加 | `node scripts/add-agent.mjs <メールアドレス> [--name 表示名] [--admin]`(環境変数 `NEXT_PUBLIC_SUPABASE_URL`・`SUPABASE_SERVICE_ROLE_KEY` が必要)。追加した人は `/agent/login` でメールアドレスを入れて、届いたメールのリンクでログインする |
