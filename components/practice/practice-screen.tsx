@@ -8,7 +8,8 @@ import { chooseServices, STAGE_CHOICES } from "@/features/app/interview-setup";
 import { InterviewController } from "@/features/interview/client/interview-controller";
 import { fetchConfig, type PocConfig } from "@/features/interview/client/poc-api";
 import { isWebSpeechSupported } from "@/features/interview/client/stt/web-speech";
-import { loadPractice, practiceRequest } from "@/features/practice/api";
+import { loadPractice, practiceRequest, retryPractice } from "@/features/practice/api";
+import { canRetry } from "@/lib/practice-link/retry";
 import type { PracticeSession, PracticeTarget } from "@/lib/practice-link/types";
 const subscribeEmpty = () => () => undefined;
 const snapshotEmpty = () => null;
@@ -31,6 +32,7 @@ function PracticeSessionScreen({ linkKey: key }: { linkKey: string }) {
   const [earphones, setEarphones] = useState(false);
   const [busy, setBusy] = useState(false), [message, setMessage] = useState("");
   const [selected, setSelected] = useState<PracticeSession | null>(null);
+  const [retryState, setRetryState] = useState<"idle" | "busy" | "sent" | "error">("idle");
   const requestId = useRef<string | null>(null), starting = useRef(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const snap = useSyncExternalStore(controller?.subscribe ?? subscribeEmpty, controller?.getSnapshot ?? snapshotEmpty, snapshotEmpty);
@@ -76,6 +78,12 @@ function PracticeSessionScreen({ linkKey: key }: { linkKey: string }) {
     } catch (e) { setMessage(e instanceof Error ? e.message : "始められませんでした"); }
     finally { starting.current = false; setBusy(false); }
   }
+  // 結果をまとめられなかった・止まった過去の練習を、もう一度まとめる(段階D)
+  async function retry(id: string) {
+    setRetryState("busy");
+    try { await retryPractice(key, id); setRetryState("sent"); setSessions((await loadPractice(key)).sessions); }
+    catch { setRetryState("error"); }
+  }
   function again() { controller?.dispose(); setController(null); setStep("intro"); setSelected(null); setMessage(""); }
   if (!target || !config) return message ? <><Notice tone="danger">{message}</Notice><SecondaryButton onClick={() => window.location.reload()}>読み込み直す</SecondaryButton></> : <Loading />;
   const stage = STAGE_CHOICES.find(s => s.value === target.settings.stage)?.label ?? "";
@@ -86,7 +94,12 @@ function PracticeSessionScreen({ linkKey: key }: { linkKey: string }) {
   const againButton = <PrimaryButton onClick={again}>もう一度練習する</PrimaryButton>;
   if (selected) return <><PageHeader title="練習の結果" />{selected.result
     ? <ResultView result={selected.result} history={selected.history} previousScore={previous(selected.id)} actions={<SecondaryButton onClick={() => setSelected(null)}>戻る</SecondaryButton>} />
-    : <><Notice>{selected.evaluation === "pending" ? "結果をまとめています。少し待ってから開き直してください。" : "結果はまだありません。会話の記録を見返せます。"}</Notice><Transcript history={selected.history} open /><SecondaryButton onClick={() => setSelected(null)}>戻る</SecondaryButton></>}</>;
+    : <>{retryState === "sent"
+        ? <Notice tone="success">結果をまとめています。1分ほどしてから、もう一度開いてください。</Notice>
+        : <Notice>{canRetry(selected) ? "結果をまとめられませんでした。会話の記録は保存されています。" : selected.evaluation === "pending" ? "結果をまとめています。少し待ってから開き直してください。" : "結果はまだありません。会話の記録を見返せます。"}</Notice>}
+      {retryState === "error" && <Notice tone="danger">いまはまとめられません。少し待ってからもう一度お試しください。</Notice>}
+      {canRetry(selected) && retryState !== "sent" && <PrimaryButton disabled={retryState === "busy"} onClick={() => void retry(selected.id)}>もう一度まとめる</PrimaryButton>}
+      <Transcript history={selected.history} open /><SecondaryButton onClick={() => { setSelected(null); setRetryState("idle"); }}>戻る</SecondaryButton></>}</>;
   if (step === "room" && controller && snap) {
     if (snap.status !== "finished") return <RoomStep controller={controller} stageLabel={stage} captionsDefault />;
     return <><PageHeader title="面接おつかれさまでした" />{snap.feedback.status === "done"

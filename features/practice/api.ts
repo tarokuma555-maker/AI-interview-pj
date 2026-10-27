@@ -21,3 +21,6 @@ export async function finishPractice(code: string, history: TurnRecord[], plan: 
   if (session.evaluation === "done") throw new ApiError("回答がないため、結果はありません", false,"NO_ANSWERS");
   throw new ApiError("結果をまとめられませんでした。会話の記録は保存されています。",true,"FEEDBACK_FAILED");
 }
+/** 結果をまとめられなかった・止まった練習の結果を、もう一度まとめる(段階D) */
+export const retryPractice = (key: string, sessionId: string) =>
+  practiceRequest<{ session: PracticeSession }>(`practice:${key}`, { action: "retry", sessionId });

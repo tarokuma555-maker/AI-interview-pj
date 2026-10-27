@@ -31,6 +31,7 @@ export default async function SeekerPage({ params, searchParams }: { params: Pro
       <h3 className="text-lg font-bold">{l.companyName}</h3><p>{l.position}</p>
       <p>{STAGE_CHOICES.find(c => c.value === l.stage)?.label}・{STYLE_CHOICES.find(c => c.value === l.style)?.label}・{DURATION_CHOICES.find(c => c.value === l.durationMin)?.label}</p>
       <p>{l.practiceCount === 0 ? "まだ練習していません" : `練習 ${l.practiceCount}回・${l.latestScore === null ? "結果はまだありません" : `最新 ${l.latestScore}点`}`}</p>
+      {l.practiceCount > 0 && <SecondaryLink href={`/agent/seekers/${id}/links/${l.id}`}>結果を見る</SecondaryLink>}
       {l.disabled ? <Notice>停止中</Notice> : <CopyLinkButton url={linkUrl(origin, l.key)} />}
       <LinkCardActions seekerId={id} linkId={l.id} disabled={l.disabled} />
     </Card>)}

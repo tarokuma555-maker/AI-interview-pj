@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { memoryData, type MemoryData } from "@/lib/agent-data/memory-repo";
-import { STALE_EVALUATION_MS } from "./evaluate";
+import { STALE_EVALUATION_MS } from "./retry";
 import { targetSnapshot, quotaCode } from "./snapshot";
 import { PracticeError, type PracticeRepo, type PracticeSession } from "./types";
 /** 開発用。開始の上限確認と追加の間にawaitを挟まず、同時開始も直列に処理する。 */

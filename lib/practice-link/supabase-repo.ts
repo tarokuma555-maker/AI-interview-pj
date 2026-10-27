@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FeedbackResult } from "@/features/interview/client/poc-api";
 import type { QuestionPlan } from "@/lib/ai/schemas/plan";
 import { candidateContextSchema, sessionSettingsSchema, type TurnRecord } from "@/lib/interview/types";
-import { STALE_EVALUATION_MS } from "./evaluate";
+import { STALE_EVALUATION_MS } from "./retry";
 import { PracticeError, type PracticeRepo, type PracticeSession } from "./types";
 
 type Row = { id: string; link_id: string; seeker_id: string; request_id: string; settings: unknown; context: unknown; history: TurnRecord[]; plan: QuestionPlan | null; started_at: string; finished_at: string | null; evaluations: { status: "pending" | "done" | "failed"; result: FeedbackResult | null; updated_at: string } | null };

@@ -1,5 +1,5 @@
 import type { FeedbackResult } from "@/features/interview/client/poc-api";
-import { canRetry } from "@/lib/practice-link/evaluate";
+import { canRetry } from "@/lib/practice-link/retry";
 import type { LinkSummary, PracticeLink, PracticeSummary, Seeker, SeekerSummary, SessionRow } from "./types";
 /** 設計 2026-10-27 4.1。未評価の練習は最新の点数を上書きしない。 */
 function latest(sessions: SessionRow[]) {
