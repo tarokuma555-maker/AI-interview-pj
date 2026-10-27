@@ -22,3 +22,17 @@ export function confirmResult(ok: boolean): string {
 export const LOGIN_NOTICES: Record<"link", string> = {
   link: "リンクの期限が切れています。もう一度メールを送ってください",
 };
+
+type OtpType = "email" | "invite" | "magiclink";
+const OTP_TYPES = new Set<string>(["email", "invite", "magiclink"]);
+
+/**
+ * メールのリンクの中身。Supabase の標準のメールは `code`(PKCE。ログインを始めたブラウザで開く)、
+ * 文面を変えたメールは `token_hash` と `type` を付けて戻ってくる(設計 2026-10-27 7章)
+ */
+export function confirmParams(params: URLSearchParams): { kind: "code"; code: string } | { kind: "otp"; tokenHash: string; type: OtpType } | null {
+  const code = params.get("code");
+  if (code) return { kind: "code", code };
+  const tokenHash = params.get("token_hash"), type = params.get("type");
+  return tokenHash && type && OTP_TYPES.has(type) ? { kind: "otp", tokenHash, type: type as OtpType } : null;
+}

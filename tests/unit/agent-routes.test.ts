@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agentRedirect, confirmResult, LOGIN_NOTICES } from "@/lib/auth/routes";
+import { agentRedirect, confirmParams, confirmResult, LOGIN_NOTICES } from "@/lib/auth/routes";
 
 /** エージェントの画面の入口(設計 2026-10-27 7章) */
 
@@ -30,5 +30,19 @@ describe("メールのリンクを開いたあと", () => {
 
   it("期限切れ・使用済みのリンクは、メールの送り直しを案内する", () => {
     expect(LOGIN_NOTICES.link).toBe("リンクの期限が切れています。もう一度メールを送ってください");
+  });
+});
+
+describe("メールのリンクの受け取り方", () => {
+  it("Supabase の標準のメールのリンク(code)と、文面を変えたメールのリンク(token_hash)の両方を受け取る", () => {
+    expect(confirmParams(new URLSearchParams("code=abc"))).toEqual({ kind: "code", code: "abc" });
+    expect(confirmParams(new URLSearchParams("token_hash=h&type=email"))).toEqual({ kind: "otp", tokenHash: "h", type: "email" });
+    expect(confirmParams(new URLSearchParams("token_hash=h&type=invite"))).toEqual({ kind: "otp", tokenHash: "h", type: "invite" });
+  });
+
+  it("足りない・知らない種類のリンクは受け取らない", () => {
+    expect(confirmParams(new URLSearchParams(""))).toBeNull();
+    expect(confirmParams(new URLSearchParams("token_hash=h"))).toBeNull();
+    expect(confirmParams(new URLSearchParams("token_hash=h&type=recovery"))).toBeNull();
   });
 });

@@ -156,11 +156,12 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://127.0.0.1:3000"
+# 本番の URL。ログインのメールは、ログインを始めた画面の URL(下の許可リストにあるもの)に戻る
+site_url = "https://ai-interview-pj.vercel.app"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+additional_redirect_urls = ["http://localhost:3000", "http://127.0.0.1:3000", "https://ai-interview-pj-*-kumataro565s-projects.vercel.app"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -245,14 +246,14 @@ otp_expiry = 3600
 # sender_name = "Admin"
 
 # メールの文面(設計書 8)。リンクのほか、別のブラウザで開いた場合に備えて確認コードも載せる。
-# 本番のプロジェクトでは、同じ文面を Supabase のダッシュボード(Authentication → Emails)に貼る
-[auth.email.template.invite]
-subject = "AI面接練習へのご招待"
-content_path = "./supabase/templates/invite.html"
-
-[auth.email.template.magic_link]
-subject = "AI面接練習のログイン"
-content_path = "./supabase/templates/magic_link.html"
+# 無料プランで Supabase 標準のメール送信を使う間は文面を変えられない(変えると設定の反映が断られる)。
+# メール送信サービス(SMTP)を設定したら、下の4行の「#」を外して `supabase config push` する
+# [auth.email.template.invite]
+# subject = "AI面接練習へのご招待"
+# content_path = "./supabase/templates/invite.html"
+# [auth.email.template.magic_link]
+# subject = "AI面接練習のログイン"
+# content_path = "./supabase/templates/magic_link.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]

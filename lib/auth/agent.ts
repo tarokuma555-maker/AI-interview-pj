@@ -36,6 +36,7 @@ export async function sendLoginCode(input: string, origin: string): Promise<{ ok
   const { error } = await supabase.auth.signInWithOtp({
     email,
     // 招待制(要件 F-01-1)。登録されていない人のアカウントは作らない
+    // メールのリンクは、ログインを始めた画面の /auth/confirm に戻る(許可リストは supabase/config.toml)
     options: { shouldCreateUser: false, emailRedirectTo: `${origin}/auth/confirm` },
   });
   return error ? { ok: false, message: loginErrorMessage(error) } : { ok: true };
