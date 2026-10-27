@@ -28,7 +28,9 @@ NEXT_PUBLIC_SUPABASE_URL= NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY= VERCEL_ENV=previ
 SERVER=$!
 for _ in $(seq 1 30); do curl -s -o /dev/null http://localhost:3100/ && break; sleep 1; done
 STATUS=0
-for test in product mic-denied history-retry agent-login agent-seekers practice-link agent-results; do
+# 旧共通コード方式の3本は公開入口の廃止に伴い履歴として保持。
+# 音声・マイク拒否・文字・結果再閲覧は practice-link で新方式を確認する。
+for test in release-entry agent-login agent-seekers practice-link agent-results; do
   if [ -z "${E2E_ONLY:-}" ] || [ "$E2E_ONLY" = "$test" ]; then
     node "$E2E/$test.mjs" || STATUS=1
   fi

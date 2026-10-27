@@ -1,6 +1,6 @@
-import { AppShell } from "@/components/app/app-shell";
+import { redirect } from "next/navigation";
 
-/** 求職者が使う画面(要件 9)。試作版(/poc)は管理者向けの検証ツールとして別に置く */
-export default function AppLayout({ children }: { children: React.ReactNode }) {
-  return <AppShell>{children}</AppShell>;
+/** 旧共通コード方式の画面は閉じる。端末の保存データは削除しない。/poc は別の管理用画面。 */
+export default function RetiredAppLayout() {
+  redirect("/");
 }

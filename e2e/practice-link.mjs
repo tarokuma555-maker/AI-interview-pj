@@ -26,7 +26,7 @@ await page.goto(`${BASE_URL}/i`);
 await page.getByText(/この招待リンクは使えません/).waitFor();
 await shot("invalid-link");
 await page.goto(url);
-await page.getByText("練習の結果は、担当のエージェントにも共有されます。録音はしません。",{exact:true}).waitFor();
+await page.getByText("練習の結果は、担当のエージェントにも共有されます。録音データは保存しません。",{exact:true}).waitFor();
 assert.equal(await page.context().cookies().then(c=>c.some(x=>x.name==="agent-dev-session")),false);
 await shot("intro");
 await page.getByRole("button",{name:"音と声を確認する",exact:true}).click();

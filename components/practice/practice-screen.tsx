@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { CheckStep } from "@/components/app/interview/check-step";
 import { RoomStep } from "@/components/app/interview/room-step";
@@ -108,10 +109,13 @@ function PracticeSessionScreen({ linkKey: key }: { linkKey: string }) {
   }
   return <>
     <PageHeader title={`${target.context.companyName} ${stage}の練習`} lead={`${target.name}さん・約${target.settings.durationMin}分`} />
-    <Notice>練習の結果は、担当のエージェントにも共有されます。録音はしません。</Notice>
+    <Notice>練習の結果は、担当のエージェントにも共有されます。録音データは保存しません。</Notice>
     <details className="rounded-xl border border-border p-4"><summary className="cursor-pointer font-semibold">練習の内容と結果の取り扱い</summary>
-      <p className="mt-3">声は文字にするためだけに使い、音声は保存しません。会話の文字と結果はサーバーに保存し、本人と担当のエージェントが確認します。応募先の病院・企業には渡しません。AIによる評価は練習の参考で、合否を予測するものではありません。「面接を始める」を押すと、この取り扱いに同意したことになります。</p>
+      <p className="mt-3">声は文字にするためだけに使い、音声は保存しません。会話の文字と結果はサーバーに保存し、本人・担当のエージェント・管理者が確認します。応募先の病院・企業には渡しません。AIによる評価は練習の参考で、合否を予測するものではありません。「面接を始める」を押すと、この取り扱いに同意したことになります。</p>
     </details>
+    <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center text-accent underline underline-offset-4">
+      個人情報・練習データの取り扱い（別のタブで開きます）
+    </Link>
     {message && <Notice tone="danger">{message}</Notice>}
     {step === "check" && controller ? <div aria-busy={busy} className={busy ? "pointer-events-none opacity-60" : ""}>
       <div className="flex flex-col gap-5"><CheckStep controller={controller} earphones={earphones} onEarphones={v => { setEarphones(v); controller.setEarphones(v); }} beginDisabled={busy} onBegin={() => void begin()} onUseText={() => prepare("text")} onRetry={() => prepare(snap?.textMode ? "text" : "voice")} onBack={again} /></div>

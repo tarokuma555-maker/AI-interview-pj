@@ -7,10 +7,13 @@ const agent = { id: "30000000-0000-4000-8000-000000000001", role: "advisor" as c
 const row = { id: sid, advisor_id: agent.id, name: "架空求職者", occupation: "看護師", career_summary: "経歴", reason_for_change: "", created_at: "2026-10-27", updated_at: "2026-10-27" };
 const link = { id: lid, seeker_id: sid, company_name: "架空病院", position: "外来", job_description: "求人", stage: "second", style: "standard", duration_min: 15, disabled_at: null, created_at: "2026-10-27" };
 const input = { companyName: "架空病院", position: "外来", jobDescription: "求人", stage: "second" as const, style: "standard" as const, durationMin: 15 as const };
-function setup(responses: { body: unknown; status?: number }[]) {
+function setup(responses: { body: unknown; status?: number }[], logFailure = false) {
   const calls: { url: URL; method: string; body: Record<string, unknown> | null }[] = [];
   const client = createClient("https://example.supabase.co", "test-publishable-key", { auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: async (url, init) => {
     calls.push({ url: new URL(String(url)), method: init?.method ?? "GET", body: init?.body ? JSON.parse(String(init.body)) : null });
+    if (String(url).includes("/agent_access_logs")) return logFailure
+      ? new Response(JSON.stringify({ message: "private detail", code: "42501" }), { status: 403 })
+      : new Response(null, { status: 201 });
     const response = responses.shift(); if (!response) throw new Error("unexpected request");
     return new Response(JSON.stringify(response.body), { status: response.status ?? 200, headers: { "Content-Type": "application/json" } });
   } } });
@@ -67,5 +70,25 @@ describe("Supabaseの読み書き(通信の形を確認。本物の接続では�
     const { repo, calls } = setup([{ body: null }]);
     expect(await repo.listPractices(sid, lid)).toBeNull(); expect(calls).toHaveLength(1);
     expect(await repo.getPractice(sid, "invalid", "s1")).toBeNull(); expect(calls).toHaveLength(1);
+  });
+  it("読む対象と本人IDだけを記録し、氏名・経歴・鍵・時刻を送らない", async () => {
+    const { repo, calls } = setup([{ body: row }]);
+    expect((await repo.getSeeker(sid))?.id).toBe(sid);
+    expect(calls[1].url.pathname).toBe("/rest/v1/agent_access_logs");
+    expect(calls[1].method).toBe("POST");
+    expect(calls[1].body).toEqual([{ agent_id: agent.id, seeker_id: sid, session_id: null, action: "seeker_view" }]);
+  });
+  it("閲覧記録を書けなければ個人情報を返さず、内部の理由は出さない", async () => {
+    const { repo } = setup([{ body: row }], true);
+    await expect(repo.getSeeker(sid)).rejects.toThrow("保存先に接続できません");
+  });
+  it("結果の取得は内部の担当確認・一覧を重複記録せず、結果の1件だけ記録する", async () => {
+    const sessionId = "40000000-0000-4000-8000-000000000001";
+    const practice = { id: sessionId, started_at: "2026-10-27T01:00:00Z", finished_at: null, evaluations: null, history: [] };
+    const { repo, calls } = setup([{ body: link }, { body: [practice] }, { body: practice }]);
+    expect((await repo.getPractice(sid, lid, sessionId))?.id).toBe(sessionId);
+    const logs = calls.filter(c => c.url.pathname.endsWith("/agent_access_logs"));
+    expect(logs).toHaveLength(1);
+    expect(logs[0].body).toEqual([{ agent_id: agent.id, seeker_id: sid, session_id: sessionId, action: "practice_view" }]);
   });
 });

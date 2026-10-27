@@ -4,7 +4,8 @@ import { hashLinkKey, linkKey, linkSecret } from "@/lib/practice-link/key";
 import type { PracticeSession } from "@/lib/practice-link/types";
 import { practiceSummary, previousScore, summarizeLinks, summarizeSeekers } from "./summary";
 import type { AgentRepo, PracticeLink, Seeker, SessionRow } from "./types";
-export type MemoryData = { seekers: Seeker[]; links: (PracticeLink & { keyHash: string })[]; sessions: SessionRow[] };
+import { withAccessLog, type AccessLog } from "./access-log";
+export type MemoryData = { seekers: Seeker[]; links: (PracticeLink & { keyHash: string })[]; sessions: SessionRow[]; accessLogs?: AccessLog[] };
 const globals = globalThis as typeof globalThis & { agentData?: MemoryData };
 export function memoryData(): MemoryData { return globals.agentData ??= { seekers: [], links: [], sessions: [] }; }
 /** 設計 2026-10-27 8章。開発用でも担当の境界と削除時の連動を守る。 */
@@ -16,7 +17,7 @@ export function createMemoryRepo(agent: Agent, store: MemoryData = memoryData())
     ? (store.sessions.filter(s => s.linkId === lid && s.seekerId === sid && "settings" in s) as PracticeSession[]).sort((x, y) => y.startedAt.localeCompare(x.startedAt))
     : null;
   const publicLink = ({ keyHash: _hash, ...link }: MemoryData["links"][number]) => { void _hash; return link; };
-  return {
+  const repo: AgentRepo = {
     async listSeekers() { return summarizeSeekers(store.seekers.filter(s => owns(s.id)), store.links, store.sessions); },
     async getSeeker(id) { const s = owns(id); return s ? { ...s } : null; },
     async createSeeker(input) { const id = randomUUID(), now = new Date().toISOString(); store.seekers.push({ ...input, id, advisorId: agent.id, createdAt: now, updatedAt: now }); return id; },
@@ -34,4 +35,7 @@ export function createMemoryRepo(agent: Agent, store: MemoryData = memoryData())
       return { ...practiceSummary(p), linkId: lid, history: structuredClone(p.history), result: structuredClone(p.result), previousScore: previousScore(list, id) };
     },
   };
+  return withAccessLog(repo, agent.id, async entries => {
+    (store.accessLogs ??= []).push(...entries.map(entry => ({ ...entry, createdAt: new Date().toISOString() })));
+  });
 }

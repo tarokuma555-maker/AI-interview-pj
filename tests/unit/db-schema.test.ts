@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 const STUB = readFileSync(new URL("../db/supabase-stub.sql", import.meta.url), "utf8");
 const MIGRATION = readFileSync(new URL("../../supabase/migrations/20261027000000_agent_invite.sql", import.meta.url), "utf8");
+const ACCESS_LOG = readFileSync(new URL("../../supabase/migrations/20261028000001_agent_access_logs.sql", import.meta.url), "utf8");
 
 const A = "00000000-0000-0000-0000-00000000000a";
 const B = "00000000-0000-0000-0000-00000000000b";
@@ -49,6 +50,7 @@ beforeEach(async () => {
   db = new PGlite();
   await db.exec(STUB);
   await db.exec(MIGRATION);
+  await db.exec(ACCESS_LOG);
   await rows("insert into auth.users (id, email) values ($1, 'agent-a@example.com'), ($2, 'agent-b@example.com')", [A, B]);
   await rows("insert into auth.users (id, email, raw_user_meta_data) values ($1, 'manager@example.com', '{\"display_name\":\"管理 太郎\"}')", [M]);
   await rows("update user_profiles set role = 'admin' where id = $1", [M]);
@@ -164,5 +166,66 @@ describe("招待リンクと練習の記録", () => {
     await expect(
       rows("insert into practice_links (seeker_id, key_hash, company_name, stage, style, duration_min) values ($1, 'h', 'x', 'first', 'standard', 20)", [seeker]),
     ).rejects.toThrow();
+  });
+});
+
+describe("求職者のデータを見た記録(要件 8.3)", () => {
+  const log = (agent: string, seeker: string, action = "seeker_view") =>
+    rows("insert into agent_access_logs (agent_id, seeker_id, action) values ($1, $2, $3)", [agent, seeker, action]);
+
+  it("エージェントは自分の名前でだけ記録でき、記録を読めるのは管理者だけ", async () => {
+    await as(A);
+    const seeker = await addSeeker(A);
+    await log(A, seeker);
+    await expect(log(B, seeker)).rejects.toThrow();
+    expect(await rows("select id from agent_access_logs")).toHaveLength(0);
+    await as(M);
+    expect(await rows("select agent_id, action from agent_access_logs")).toEqual([{ agent_id: A, action: "seeker_view" }]);
+  });
+
+  it("決まった種類の操作だけを記録し、記録は書き換え・削除できない", async () => {
+    await as(A);
+    const seeker = await addSeeker(A);
+    await expect(log(A, seeker, "anything")).rejects.toThrow();
+    await log(A, seeker, "seeker_view");
+    await as(M);
+    await expect(db.query("update agent_access_logs set action = 'practice_list'")).rejects.toThrow("permission denied");
+    await expect(db.query("delete from agent_access_logs")).rejects.toThrow("permission denied");
+  });
+
+  it("求職者を削除しても、見た記録は残る", async () => {
+    await as(A);
+    const seeker = await addSeeker(A);
+    await log(A, seeker);
+    await rows("delete from seekers where id = $1", [seeker]);
+    await asServer();
+    expect(await rows("select seeker_id from agent_access_logs")).toEqual([{ seeker_id: seeker }]);
+  });
+
+  it("担当外・停止中・未ログインでは記録を追加できない", async () => {
+    await as(A); const seeker = await addSeeker(A);
+    await as(B); await expect(log(B, seeker)).rejects.toThrow();
+    await asServer(); await rows("update user_profiles set is_active = false where id = $1", [A]);
+    await as(A); await expect(log(A, seeker)).rejects.toThrow();
+    await asAnon(); await expect(log(A, seeker)).rejects.toThrow();
+  });
+
+  it("結果の記録は同じ求職者の練習に限り、日時を偽って書けない", async () => {
+    await as(A);
+    const one = await addSeeker(A), two = await addSeeker(A), link = await addLink(one);
+    await asServer(); const session = await addSession(link, one);
+    await as(A);
+    const view = (sid: string) => rows("insert into agent_access_logs (agent_id, seeker_id, session_id, action) values ($1, $2, $3, 'practice_view')", [A, sid, session]);
+    await view(one);
+    await expect(view(two)).rejects.toThrow();
+    await expect(log(A, one, "practice_view")).rejects.toThrow();
+    await expect(rows("insert into agent_access_logs (agent_id, seeker_id, action, created_at) values ($1, $2, 'seeker_view', '2000-01-01')", [A, one])).rejects.toThrow("permission denied");
+    await as(M);
+    await log(M, two);
+    expect(await rows("select id from agent_access_logs")).toHaveLength(2);
+    await asServer();
+    await rows("delete from seekers where advisor_id = $1", [A]);
+    await rows("delete from auth.users where id = $1", [A]);
+    expect(await rows("select agent_id from agent_access_logs where session_id = $1", [session])).toEqual([{ agent_id: A }]);
   });
 });

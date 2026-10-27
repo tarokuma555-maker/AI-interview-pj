@@ -7,6 +7,7 @@ import type { FeedbackResult } from "@/features/interview/client/poc-api";
 import type { TurnRecord } from "@/lib/interview/types";
 import { practiceSummary, previousScore, summarizeLinks, summarizeSeekers, type PracticeFacts } from "./summary";
 import type { AgentRepo, PracticeLink, Seeker, SessionRow } from "./types";
+import { withAccessLog } from "./access-log";
 
 type SeekerRow = { id: string; advisor_id: string; name: string; occupation: string; career_summary: string; reason_for_change: string; created_at: string; updated_at: string };
 type LinkRow = { id: string; seeker_id: string; company_name: string; position: string; job_description: string; stage: LinkInput["stage"]; style: LinkInput["style"]; duration_min: LinkInput["durationMin"]; disabled_at: string | null; created_at: string };
@@ -71,5 +72,10 @@ export function createSupabaseRepo(client: SupabaseClient, agent: Agent): AgentR
       return { ...practiceSummary(f), linkId: lid, history: row.history ?? [], result: f.result, previousScore: previousScore(list, id) };
     },
   };
-  return repo;
+  return withAccessLog(repo, agent.id, async entries => {
+    // 本人の接続で書く。本文・氏名・招待の鍵・IPは記録しない。
+    checked(await client.from("agent_access_logs").insert(entries.map(entry => ({
+      agent_id: entry.agentId, seeker_id: entry.seekerId, session_id: entry.sessionId, action: entry.action,
+    }))));
+  });
 }

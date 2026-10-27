@@ -14,6 +14,8 @@ const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUP
 const stamp = Date.now();
 const emails = [`smoke-a-${stamp}@example.com`, `smoke-b-${stamp}@example.com`];
 const created = [];
+const opened = [];
+async function phone(...args) { const result = await openPhone(...args); opened.push(result); return result; }
 
 async function agentLoginByLink(page, email) {
   const { data, error } = await admin.auth.admin.generateLink({ type: "magiclink", email });
@@ -30,7 +32,7 @@ try {
   }
 
   // エージェント A:ログイン → 求職者 → 応募先とリンク
-  const agent = await openPhone("smoke-agent");
+  const agent = await phone("smoke-agent");
   const a = agent.page;
   await agentLoginByLink(a, emails[0]);
   await a.getByText("担当の求職者", { exact: true }).waitFor();
@@ -51,20 +53,49 @@ try {
   console.log("[smoke] エージェントのログイン・求職者と招待リンクの作成 OK");
 
   // 求職者:リンク → 文字で答える面接 → 結果
-  const seeker = await openPhone("smoke-seeker", { micAllowed: false });
+  const voiceMode = process.env.SMOKE_VOICE === "1";
+  const seeker = await phone("smoke-seeker", { micAllowed: voiceMode });
   const s = seeker.page;
+  let recognized = 0, speechBytes = 0;
+  const audioChecks = [];
+  s.on("response", response => {
+    const path = new URL(response.url()).pathname;
+    if (response.ok() && path === "/api/poc/stt") recognized++;
+    if (response.ok() && path === "/api/poc/tts") audioChecks.push(response.body().then(body => { speechBytes += body.length; }));
+  });
   await s.goto(url);
-  await s.getByText("練習の結果は、担当のエージェントにも共有されます。録音はしません。", { exact: true }).waitFor({ timeout: 30000 });
-  await s.getByRole("button", { name: "文字で答える面接にする", exact: true }).click();
+  await s.getByText("練習の結果は、担当のエージェントにも共有されます。録音データは保存しません。", { exact: true }).waitFor({ timeout: 30000 });
+  await s.getByRole("button", { name: voiceMode ? "音と声を確認する" : "文字で答える面接にする", exact: true }).click();
+  if (voiceMode) {
+    await s.getByText("✓ 声が届いています", { exact: true }).waitFor({ timeout: 30000 });
+    await s.getByRole("button", { name: "テストの声を流す", exact: true }).click();
+    await s.getByText("声は聞こえましたか?", { exact: true }).waitFor({ timeout: 60000 });
+    // 人が聞いたことにはせず、レスポンスの音声データを後で検証する。
+  }
   await s.getByRole("button", { name: "面接を始める", exact: true }).click({ timeout: 60000 });
   await s.getByText("あなたの番です", { exact: true }).waitFor({ timeout: 90000 });
-  await s.locator("textarea").fill("内科病棟で8年間、患者さんの看護と後輩の指導を担当してきました。急性期の経験を活かしたいと考えています。");
-  await s.getByRole("button", { name: "回答を送る", exact: true }).click();
-  await s.getByText("あなたの番です", { exact: true }).waitFor({ timeout: 90000 });
+  if (voiceMode) {
+    await s.getByText("面接官が話しています", { exact: true }).waitFor({ timeout: 120000 });
+  } else {
+    await s.locator("textarea").fill("内科病棟で8年間、患者さんの看護と後輩の指導を担当してきました。急性期の経験を活かしたいと考えています。");
+    await s.getByRole("button", { name: "回答を送る", exact: true }).click();
+    await s.getByText("あなたの番です", { exact: true }).waitFor({ timeout: 90000 });
+  }
   await s.getByRole("button", { name: "面接を終了", exact: true }).click();
   await s.getByRole("button", { name: "終了する", exact: true }).click();
   await s.getByText("次にやること", { exact: true }).waitFor({ timeout: 300000 });
   await seeker.shot("result");
+  if (voiceMode) {
+    const response = await s.request.get(`${BASE_URL}/api/practice`, { headers: { "x-practice-link": new URL(url).hash.slice(1) } });
+    assert.equal(response.status(), 200);
+    const saved = (await response.json()).sessions[0];
+    assert.equal(saved.settings.answerBy, "voice");
+    assert(saved.history.some(t => t.speaker === "candidate" && t.inputMode === "voice" && t.text.length > 5));
+    await Promise.all(audioChecks);
+    assert(recognized > 0, "音声の文字化に成功している");
+    assert(speechBytes > 100, "面接官の音声が生成されている");
+    console.log("[smoke] 本物の音声認識・音声生成・音声回答の保存 OK（録音済みの合成音声入力、スマホ実機ではない）");
+  }
   await seeker.finish();
   console.log("[smoke] 求職者のリンクからの面接と結果 OK");
 
@@ -75,6 +106,16 @@ try {
   await a.getByText("次にやること", { exact: true }).waitFor();
   const practiceUrl = a.url();
   await agent.shot("agent-result");
+  const sessionId = new URL(practiceUrl).pathname.split("/").at(-1);
+  const logCount = async () => {
+    const { count, error } = await admin.from("agent_access_logs").select("id", { count: "exact", head: true }).eq("agent_id", created[0]).eq("session_id", sessionId).eq("action", "practice_view");
+    if (error) throw error;
+    return count;
+  };
+  const initialLogs = await logCount(); assert(initialLogs > 0);
+  await a.reload(); await a.getByText("次にやること", { exact: true }).waitFor();
+  assert(await logCount() > initialLogs);
+  console.log("[smoke] 結果の閲覧・再読み込みの記録 OK");
   console.log("[smoke] エージェントの結果の閲覧 OK");
 
   // エージェント B:A の求職者・練習は見えない(RLS)
@@ -102,6 +143,9 @@ try {
     for (const id of created) {
       await admin.from("seekers").delete().eq("advisor_id", id);
       await admin.auth.admin.deleteUser(id);
+      // 合成データを使ったこの試験の記録だけを、管理用の接続で掃除する。
+      await admin.from("agent_access_logs").delete().eq("agent_id", id);
     }
   }
+  for (const browser of opened) await browser.page.context().browser()?.close();
 }

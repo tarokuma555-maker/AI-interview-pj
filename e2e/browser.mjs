@@ -5,7 +5,7 @@ import { chromium } from "playwright";
 export const BASE_URL = process.env.BASE_URL ?? "http://localhost:3100";
 export const ACCESS_CODE = process.env.ACCESS_CODE ?? "test-code";
 const OUT = new URL("./out/", import.meta.url).pathname;
-const FAKE_AUDIO = new URL("./fixtures/answer.wav", import.meta.url).pathname;
+const FAKE_AUDIO = process.env.E2E_AUDIO_PATH || new URL("./fixtures/answer.wav", import.meta.url).pathname;
 const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
 
 /** micAllowed: false ならマイクの使用を断った状態にする */

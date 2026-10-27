@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { InterviewController } from "@/features/interview/client/interview-controller";
 import { isInAppBrowser, micPermissionHelp, preparingLabel, prepareProblem } from "@/features/app/messages";
-import { Card, ChoiceGroup, Notice, PageHeader, PrimaryButton, SecondaryButton, SecondaryLink } from "../ui";
+import { Card, ChoiceGroup, Notice, PageHeader, PrimaryButton, SecondaryButton } from "../ui";
 import { MicMeter } from "./mic-meter";
 
 /** 声が届いたとみなす音量(0〜1。およそ -40dB)と、続けて超えた回数 */
@@ -81,7 +81,7 @@ export function CheckStep({
         <PrimaryButton onClick={onRetry}>もう一度試す</PrimaryButton>
         {problem.canUseText && voice && <SecondaryButton onClick={onUseText}>文字で答える面接にする</SecondaryButton>}
         <SecondaryButton onClick={onBack}>準備の画面に戻る</SecondaryButton>
-        <SecondaryLink href="/help#mic">困ったときの対処を見る</SecondaryLink>
+        <a href="/help#mic" target="_blank" rel="noopener noreferrer" className="flex min-h-12 items-center justify-center underline underline-offset-4">困ったときの対処を見る（別のタブで開きます）</a>
       </>
     );
   }
