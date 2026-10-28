@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agentRedirect, confirmParams, confirmResult, LOGIN_NOTICES } from "@/lib/auth/routes";
+import { agentBackHref, agentRedirect, confirmParams, confirmResult, LOGIN_NOTICES } from "@/lib/auth/routes";
 
 /** エージェントの画面の入口(設計 2026-10-27 7章) */
 
@@ -44,5 +44,29 @@ describe("メールのリンクの受け取り方", () => {
     expect(confirmParams(new URLSearchParams(""))).toBeNull();
     expect(confirmParams(new URLSearchParams("token_hash=h"))).toBeNull();
     expect(confirmParams(new URLSearchParams("token_hash=h&type=recovery"))).toBeNull();
+  });
+});
+
+describe("エージェントの画面の「戻る」の行き先(2026-10-28 依頼者の要望)", () => {
+  const s = "/agent/seekers/s1", l = `${s}/links/l1`;
+  it("担当の求職者の一覧には「戻る」を出さない", () => {
+    expect(agentBackHref("/agent")).toBeNull();
+    expect(agentBackHref("/agent/login")).toBeNull();
+  });
+  it("求職者の追加・詳細からは一覧へ", () => {
+    expect(agentBackHref("/agent/seekers/new")).toBe("/agent");
+    expect(agentBackHref(s)).toBe("/agent");
+  });
+  it("求職者の編集・応募先の追加と編集・練習の一覧からは求職者の詳細へ", () => {
+    expect(agentBackHref(`${s}/edit`)).toBe(s);
+    expect(agentBackHref(`${s}/links/new`)).toBe(s);
+    expect(agentBackHref(`${l}/edit`)).toBe(s);
+    expect(agentBackHref(l)).toBe(s);
+  });
+  it("練習の結果からは練習の一覧へ", () => {
+    expect(agentBackHref(`${l}/practices/p1`)).toBe(l);
+  });
+  it("知らない画面では一覧へ", () => {
+    expect(agentBackHref("/agent/unknown")).toBe("/agent");
   });
 });

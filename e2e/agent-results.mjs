@@ -59,6 +59,17 @@ await a.locator("details[open] li", { hasText: "介護福祉士として5年間"
 const practiceUrl = a.url();
 await shot("result");
 
+// 上部の「戻る」で、練習の一覧 → 求職者の詳細 → 担当の求職者へ戻れる(2026-10-28 依頼者の要望)
+const back = () => a.getByRole("link", { name: "戻る", exact: true });
+await back().click();
+await a.waitForURL(/\/links\/[a-f0-9-]+$/);
+await back().click();
+await a.waitForURL(/\/seekers\/[a-f0-9-]+$/);
+assert.equal(a.url(), detail);
+await back().click();
+await a.waitForURL(/\/agent$/);
+assert.equal(await back().count(), 0, "担当の求職者の一覧には「戻る」を出さない");
+
 // ほかのエージェントは、URL を直接開いても見られない
 const other = await openPhone("agent-results-other");
 await agentLogin(other.page, "results-other@example.com");

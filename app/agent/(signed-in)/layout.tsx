@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { logout } from "@/app/agent/actions";
+import { BackLink } from "@/components/agent/back-link";
 import { getAgent } from "@/lib/auth/agent";
 import { AGENT_LOGIN } from "@/lib/auth/routes";
 
@@ -9,8 +10,9 @@ export default async function SignedInLayout({ children }: { children: React.Rea
   if (!agent) redirect(AGENT_LOGIN);
   return (
     <>
-      <div className="flex items-center justify-between text-sm text-muted">
-        <span>{agent.displayName} さん</span>
+      <div className="flex items-center justify-between gap-2 text-sm text-muted">
+        <BackLink />
+        <span className="ml-auto truncate">{agent.displayName} さん</span>
         <form action={logout}>
           <button type="submit" className="min-h-11 px-2 underline-offset-4 hover:underline">
             ログアウト

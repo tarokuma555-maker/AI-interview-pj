@@ -36,3 +36,17 @@ export function confirmParams(params: URLSearchParams): { kind: "code"; code: st
   const tokenHash = params.get("token_hash"), type = params.get("type");
   return tokenHash && type && OTP_TYPES.has(type) ? { kind: "otp", tokenHash, type: type as OtpType } : null;
 }
+
+/**
+ * エージェントの画面の上部の「戻る」の行き先(2026-10-28 依頼者の要望)。ブラウザの履歴ではなく画面の親に戻す
+ * (メールやブックマークから直接開いても迷わないように)。一覧とログインの画面には出さない(null)
+ */
+export function agentBackHref(pathname: string): string | null {
+  if (pathname === AGENT_HOME || pathname === AGENT_LOGIN) return null;
+  const parts = pathname.split("/").filter(Boolean); // agent, seekers, :id, links, :lid, practices, :sid
+  if (parts[1] !== "seekers" || !parts[2] || parts[2] === "new") return AGENT_HOME;
+  const seeker = `${AGENT_HOME}/seekers/${parts[2]}`;
+  if (parts.length === 3) return AGENT_HOME;
+  if (parts[3] === "links" && parts[4] && parts[4] !== "new" && parts[5] === "practices") return `${seeker}/links/${parts[4]}`;
+  return seeker;
+}
