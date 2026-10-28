@@ -52,8 +52,8 @@ try {
   await agent.shot("link");
   console.log("[smoke] エージェントのログイン・求職者と招待リンクの作成 OK");
 
-  // 求職者:リンク → 文字で答える面接 → 結果
-  const voiceMode = process.env.SMOKE_VOICE === "1";
+  // 求職者:リンク → 声で答える面接(テスト用のマイク音声)→ 結果。招待リンクの練習は声で答える面接だけ(2026-10-28)
+  const voiceMode = true;
   const seeker = await phone("smoke-seeker", { micAllowed: voiceMode });
   const s = seeker.page;
   let recognized = 0, speechBytes = 0;
@@ -65,7 +65,8 @@ try {
   });
   await s.goto(url);
   await s.getByText("練習の結果は、担当のエージェントにも共有されます。録音データは保存しません。", { exact: true }).waitFor({ timeout: 30000 });
-  await s.getByRole("button", { name: voiceMode ? "音と声を確認する" : "文字で答える面接にする", exact: true }).click();
+  assert.equal(await s.getByRole("button", { name: "文字で答える面接にする" }).count(), 0, "文字で答える面接のボタンは出さない");
+  await s.getByRole("button", { name: "音と声を確認する", exact: true }).click();
   if (voiceMode) {
     await s.getByText("✓ 声が届いています", { exact: true }).waitFor({ timeout: 30000 });
     await s.getByRole("button", { name: "テストの声を流す", exact: true }).click();
@@ -88,10 +89,6 @@ try {
     await response.finished();
     await s.getByText("あなたの番です", { exact: true }).waitFor({ timeout: 90000 });
     console.log("[smoke] 音声回答後の応答 OK");
-  } else {
-    await s.locator("textarea").fill("内科病棟で8年間、患者さんの看護と後輩の指導を担当してきました。急性期の経験を活かしたいと考えています。");
-    await s.getByRole("button", { name: "回答を送る", exact: true }).click();
-    await s.getByText("あなたの番です", { exact: true }).waitFor({ timeout: 90000 });
   }
   await s.getByRole("button", { name: "面接を終了", exact: true }).click();
   await s.getByRole("button", { name: "終了する", exact: true }).click();

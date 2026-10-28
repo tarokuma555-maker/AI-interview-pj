@@ -118,9 +118,9 @@ function PracticeSessionScreen({ linkKey: key }: { linkKey: string }) {
     </Link>
     {message && <Notice tone="danger">{message}</Notice>}
     {step === "check" && controller ? <div aria-busy={busy} className={busy ? "pointer-events-none opacity-60" : ""}>
-      <div className="flex flex-col gap-5"><CheckStep controller={controller} earphones={earphones} onEarphones={v => { setEarphones(v); controller.setEarphones(v); }} beginDisabled={busy} onBegin={() => void begin()} onUseText={() => prepare("text")} onRetry={() => prepare(snap?.textMode ? "text" : "voice")} onBack={again} /></div>
+      <div className="flex flex-col gap-5"><CheckStep controller={controller} earphones={earphones} onEarphones={v => { setEarphones(v); controller.setEarphones(v); }} beginDisabled={busy} onBegin={() => void begin()} onRetry={() => prepare("voice")} onBack={again} /></div>
       {busy && <p role="status">面接を始めています…</p>}
-    </div> : <><PrimaryButton onClick={() => prepare("voice")}>音と声を確認する</PrimaryButton><SecondaryButton onClick={() => prepare("text")}>文字で答える面接にする</SecondaryButton></>}
+    </div> : <PrimaryButton onClick={() => prepare("voice")}>音と声を確認する</PrimaryButton>}
     <h2 className="text-xl font-bold">これまでの練習</h2>
     {!sessions.length && <p>これから最初の練習を始められます。</p>}
     {sessions.map(s => <Card key={s.id}><p>{new Date(s.startedAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}・{s.score === null ? s.evaluation === "failed" ? "結果を作成できませんでした" : s.evaluation === "done" ? "回答なし" : s.finishedAt ? "結果を準備中" : "面接を開始しました" : `${s.score}点`}</p>

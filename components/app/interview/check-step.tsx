@@ -12,7 +12,9 @@ const VOICE_HITS = 3;
 
 /**
  * 機器チェック(要件 S-06、F-05-1)。この画面のあいだに質問計画を作る。
- * 声が届くか・面接官の声が聞こえるかを確かめ、うまくいかないときは原因と対処、文字で答える面接への切り替えを示す。
+ * 声が届くか・面接官の声が聞こえるかを確かめ、うまくいかないときは原因と対処を示す。
+ * 文字で答える面接への切り替えボタンは、onUseText を渡した画面(管理者の検証用など)にだけ出す。
+ * 招待リンクの練習では出さない(依頼者の決定 2026-10-28。声で答える面接だけにする)。
  */
 export function CheckStep({
   controller,
@@ -29,7 +31,7 @@ export function CheckStep({
   earphones: boolean;
   onEarphones: (earphones: boolean) => void;
   onBegin: () => void;
-  onUseText: () => void;
+  onUseText?: () => void;
   onRetry: () => void;
   onBack: () => void;
 }) {
@@ -79,7 +81,7 @@ export function CheckStep({
         <PageHeader title={problem.title} />
         <Notice tone="danger">{problem.detail}</Notice>
         <PrimaryButton onClick={onRetry}>もう一度試す</PrimaryButton>
-        {problem.canUseText && voice && <SecondaryButton onClick={onUseText}>文字で答える面接にする</SecondaryButton>}
+        {problem.canUseText && voice && onUseText && <SecondaryButton onClick={onUseText}>文字で答える面接にする</SecondaryButton>}
         <SecondaryButton onClick={onBack}>準備の画面に戻る</SecondaryButton>
         <a href="/help#mic" target="_blank" rel="noopener noreferrer" className="flex min-h-12 items-center justify-center underline underline-offset-4">困ったときの対処を見る（別のタブで開きます）</a>
       </>
@@ -151,7 +153,7 @@ export function CheckStep({
         面接を始める
       </PrimaryButton>
       {voice && !heard && <p className="-mt-3 text-center text-sm text-muted">声が届いたことを確かめると、始められます</p>}
-      {voice && <SecondaryButton onClick={onUseText}>声が届かないので、文字で答える</SecondaryButton>}
+      {voice && onUseText && <SecondaryButton onClick={onUseText}>声が届かないので、文字で答える</SecondaryButton>}
     </>
   );
 }

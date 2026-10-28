@@ -16,23 +16,24 @@ await a.getByLabel("病院・会社の名前", { exact: true }).fill("結果テ�
 await a.getByRole("button", { name: "招待リンクを作る", exact: true }).click();
 const url = await a.getByTestId("created-link-url").textContent();
 
-// 求職者が文字で答える面接を1回終える
-const seeker = await openPhone("agent-results-seeker", { micAllowed: false });
+// 求職者が声で答える面接を1回終える(テスト用のマイク音声。模擬の聞き取りは「以上です」で終わる)
+const seeker = await openPhone("agent-results-seeker");
 const s = seeker.page;
 await s.goto(url);
-await s.getByRole("button", { name: "文字で答える面接にする", exact: true }).click();
+assert.equal(await s.getByRole("button", { name: "文字で答える面接にする" }).count(), 0);
+await s.getByRole("button", { name: "音と声を確認する", exact: true }).click();
+await s.getByText("✓ 声が届いています", { exact: true }).waitFor({ timeout: 20000 });
 await s.getByRole("button", { name: "面接を始める", exact: true }).click();
 await s.getByText("あなたの番です", { exact: true }).waitFor({ timeout: 30000 });
-await s.locator("textarea").fill("内科病棟で8年間、患者さんの看護と後輩の指導を担当してきました。");
-await s.getByRole("button", { name: "回答を送る", exact: true }).click();
-await s.getByText("あなたの番です", { exact: true }).waitFor({ timeout: 30000 });
+await s.getByText("面接官が話しています", { exact: true }).waitFor({ timeout: 60000 });
 await s.getByRole("button", { name: "面接を終了", exact: true }).click();
 await s.getByRole("button", { name: "終了する", exact: true }).click();
 await s.getByText("次にやること", { exact: true }).waitFor({ timeout: 60000 });
 
-// もう1回始めて、答える前に画面を閉じる(途中で終わった練習)
+// もう1回始めて、面接の途中で画面を閉じる(途中で終わった練習)
 await s.getByRole("button", { name: "もう一度練習する", exact: true }).click();
-await s.getByRole("button", { name: "文字で答える面接にする", exact: true }).click();
+await s.getByRole("button", { name: "音と声を確認する", exact: true }).click();
+await s.getByText("✓ 声が届いています", { exact: true }).waitFor({ timeout: 20000 });
 await s.getByRole("button", { name: "面接を始める", exact: true }).click();
 await s.getByText("あなたの番です", { exact: true }).waitFor({ timeout: 30000 });
 await seeker.finish();
@@ -54,7 +55,7 @@ await scored.click();
 await a.waitForURL(/\/practices\/[a-f0-9-]+$/);
 await a.getByText("次にやること", { exact: true }).waitFor();
 await a.locator("summary", { hasText: "会話の記録" }).click();
-await a.locator("details[open] li", { hasText: "内科病棟で8年間、患者さんの看護と後輩の指導を担当してきました。" }).waitFor();
+await a.locator("details[open] li", { hasText: "介護福祉士として5年間" }).first().waitFor();
 const practiceUrl = a.url();
 await shot("result");
 
@@ -64,7 +65,7 @@ await agentLogin(other.page, "results-other@example.com");
 await other.page.goto(practiceUrl);
 await other.page.getByText("この練習は見つかりません", { exact: true }).waitFor();
 assert.equal(await other.page.getByText("結果テスト求職者").count(), 0);
-assert.equal(await other.page.getByText("内科病棟で8年間").count(), 0);
+assert.equal(await other.page.getByText("介護福祉士として5年間").count(), 0);
 await other.shot("not-found");
 await other.finish();
 await agent.finish();
