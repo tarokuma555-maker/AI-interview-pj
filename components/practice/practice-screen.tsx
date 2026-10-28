@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { CheckStep } from "@/components/app/interview/check-step";
 import { RoomStep } from "@/components/app/interview/room-step";
 import { ResultView, Transcript } from "@/components/app/result-view";
+import { ResultWaiting } from "@/components/app/result-waiting";
 import { Card, Loading, Notice, PageHeader, PrimaryButton, SecondaryButton } from "@/components/app/ui";
 import { chooseServices, STAGE_CHOICES } from "@/features/app/interview-setup";
 import { InterviewController } from "@/features/interview/client/interview-controller";
@@ -100,12 +101,15 @@ function PracticeSessionScreen({ linkKey: key }: { linkKey: string }) {
         : <Notice>{canRetry(selected) ? "結果をまとめられませんでした。会話の記録は保存されています。" : selected.evaluation === "pending" ? "結果をまとめています。少し待ってから開き直してください。" : "結果はまだありません。会話の記録を見返せます。"}</Notice>}
       {retryState === "error" && <Notice tone="danger">いまはまとめられません。少し待ってからもう一度お試しください。</Notice>}
       {canRetry(selected) && retryState !== "sent" && <PrimaryButton disabled={retryState === "busy"} onClick={() => void retry(selected.id)}>もう一度まとめる</PrimaryButton>}
-      <Transcript history={selected.history} open /><SecondaryButton onClick={() => { setSelected(null); setRetryState("idle"); }}>戻る</SecondaryButton></>}</>;
+      <Transcript history={selected.history} /><SecondaryButton onClick={() => { setSelected(null); setRetryState("idle"); }}>戻る</SecondaryButton></>}</>;
   if (step === "room" && controller && snap) {
     if (snap.status !== "finished") return <RoomStep controller={controller} stageLabel={stage} captionsDefault />;
     return <><PageHeader title="面接おつかれさまでした" />{snap.feedback.status === "done"
       ? <ResultView result={snap.feedback.result} history={snap.history} previousScore={previous(activeId ?? undefined)} actions={againButton} />
-      : <><Notice>{snap.feedback.status === "failed" ? "結果を確認できませんでした。もう一度お試しください。" : snap.feedback.status === "no_answers" ? "回答がなかったため、結果はありません。" : "会話を保存し、結果をまとめています。保存が終わるまでお待ちください。"}</Notice><Transcript history={snap.history} open />{snap.feedback.status === "failed" && <SecondaryButton onClick={() => void controller.requestFeedback()}>保存と結果をもう一度確認する</SecondaryButton>}{againButton}</>}</>;
+      : snap.feedback.status === "failed" || snap.feedback.status === "no_answers"
+        ? <><Notice>{snap.feedback.status === "failed" ? "結果を確認できませんでした。もう一度お試しください。" : "回答がなかったため、結果はありません。"}</Notice><Transcript history={snap.history} />{snap.feedback.status === "failed" && <SecondaryButton onClick={() => void controller.requestFeedback()}>保存と結果をもう一度確認する</SecondaryButton>}{againButton}</>
+        // 保存と結果づくりの間は、動きのある案内を出し、会話の記録は閉じておく(2026-10-28 依頼者の要望)
+        : <><ResultWaiting /><Transcript history={snap.history} /></>}</>;
   }
   return <>
     <PageHeader title={`${target.context.companyName} ${stage}の練習`} lead={`${target.name}さん・約${target.settings.durationMin}分`} />

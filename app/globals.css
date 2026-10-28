@@ -47,3 +47,9 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+
+/* 結果を待つ間の流れる帯(components/app/result-waiting.tsx) */
+@keyframes result-progress {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(250%); }
+}

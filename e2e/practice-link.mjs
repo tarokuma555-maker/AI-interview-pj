@@ -56,6 +56,12 @@ await v.getByText("面接官が話しています",{exact:true}).waitFor({timeou
 await voice.shot("voice-answer");
 await v.getByRole("button",{name:"面接を終了",exact:true}).click();
 await v.getByRole("button",{name:"終了する",exact:true}).click();
+// 保存と結果づくりの間は、動きのある案内を出し、会話の記録は閉じておく(2026-10-28 依頼者の要望)
+const waiting = v.getByTestId("result-waiting");
+await waiting.waitFor({timeout:10000});
+assert.equal(await waiting.getAttribute("aria-busy"),"true");
+assert.equal(await v.locator("details[open]").count(),0,"会話の記録は閉じた状態で出す");
+await voice.shot("waiting");
 await v.getByText("次にやること",{exact:true}).waitFor({timeout:60000});
 await voice.shot("result");
 const auth={"x-practice-link":key};
