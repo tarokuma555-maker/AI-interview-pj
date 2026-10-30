@@ -46,7 +46,7 @@ assert.equal(await v.getByRole("button",{name:/文字で答える/}).count(),0);
 await voice.shot("check");
 // 機器確認の途中に担当者が直しても、開始時点の情報と質問計画を使う。
 await agent.page.goto(detail);
-await agent.page.getByRole("link",{name:"直す",exact:true}).click();
+await agent.page.getByRole("link",{name:"内容修正",exact:true}).click();
 await agent.page.getByLabel("職種・配属先",{exact:true}).fill("確認中に変更した職種");
 await agent.page.getByRole("button",{name:"保存する",exact:true}).click();
 await agent.page.getByText("確認中に変更した職種",{exact:true}).waitFor();
@@ -97,7 +97,7 @@ assert.equal(denied.status(),429); assert.equal((await denied.json()).error.code
 await agent.page.goto(detail);
 await agent.page.getByText(/練習 3回・最新/).waitFor();
 await agent.shot("practice-count");
-await agent.page.getByRole("button",{name:"使えないようにする",exact:true}).click();
+await agent.page.getByRole("button",{name:"URL停止",exact:true}).click();
 await agent.page.getByText("停止中",{exact:true}).waitFor();
 await page.reload(); await page.getByText(/この招待リンクは使えません/).waitFor();
 await shot("disabled-link");

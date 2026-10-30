@@ -25,14 +25,14 @@ await page.getByRole("button", { name: "リンクをコピー", exact: true }).f
 await page.getByRole("button", { name: "コピーしました", exact: true }).waitFor();
 assert.equal(await page.evaluate(() => navigator.clipboard.readText()), url);
 await shot("created-link");
-await page.getByRole("link", { name: "直す", exact: true }).click();
+await page.getByRole("link", { name: "内容修正", exact: true }).click();
 await page.getByLabel("職種・配属先", { exact: true }).fill("外来看護師");
 await page.getByRole("button", { name: "保存する", exact: true }).click();
 await page.getByText("外来看護師", { exact: true }).waitFor();
 await page.getByRole("button", { name: "リンクをコピー", exact: true }).click();
 await page.getByRole("button", { name: "コピーしました", exact: true }).waitFor();
 assert.equal(await page.evaluate(() => navigator.clipboard.readText()), url);
-await page.getByRole("button", { name: "使えないようにする", exact: true }).click();
+await page.getByRole("button", { name: "URL停止", exact: true }).click();
 await page.getByText("停止中", { exact: true }).waitFor();
 assert.equal(await page.getByRole("button", { name: /リンクをコピー|コピーしました/ }).count(), 0);
 await shot("disabled");
